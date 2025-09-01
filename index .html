@@ -165,46 +165,54 @@
 
         // 考试模块数据
         const examModules = [
-            {
+             {
                 id: 1,
+                name: '直播前综合考试',
+                icon: 'fa-solid fa-star',
+                items: ['随机抽取10道题目', '涵盖所有模块内容', '检验综合能力', '开播前必考'],
+                progress: 100,
+                isComprehensive: true // 标记为综合考试
+            },
+            {
+                id: 2,
                 name: '基础素养',
                 icon: 'fa-solid fa-book',
                 items: ['平台规则认知', '直播纪律要求', '基础设备使用', '直播操作界面认知'],
                 progress: 75
             },
             {
-                id: 2,
+                id: 3,
                 name: '镜头表现力',
                 icon: 'fa-solid fa-camera',
                 items: ['形象管理', '表情管理', '肢体语言', '镜头感和表现力'],
                 progress: 60
             },
             {
-                id: 3,
+                id: 4,
                 name: '内容与口才',
                 icon: 'fa-solid fa-microphone',
                 items: ['话题组织能力', '段子和节奏把控', '互动技巧', '临场应变能力'],
                 progress: 45
             },
             {
-                id: 4,
+                id: 5,
                 name: '粉丝与营收',
                 icon: 'fa-solid fa-users',
                 items: ['粉丝维护技巧', '礼物引导话术', 'PK策略', '数据分析能力'],
                 progress: 30
             },
             {
-                id: 5,
+                id: 6,
                 name: '心态与职业观',
                 icon: 'fa-solid fa-heart',
                 items: ['抗压能力', '直播时长稳定性', '学习意愿', '职业规划'],
                 progress: 15
             }
-        ];
+           ];
 
         // 题库数据
         const questionBank = {
-            1: [ // 基础素养模块题目
+            2: [ // 基础素养模块题目
                 {
                 id: 1,
                 type: 'single',
@@ -1456,7 +1464,7 @@
                 explanation: '正确。技巧可以学习，但真诚是打动人心、留住粉丝的根本。'
             }
         ],
-            2: [ // 镜头表现力模块题目 
+            3: [ // 镜头表现力模块题目 
     {
         "id": 1,
         "type": "single",
@@ -2708,7 +2716,7 @@
         "explanation": "正确。所有技巧的最终目的，是建立真实的情感连接和信任关系。"
     }
             ],
-            3: [ // 内容与口才模块题目
+            4: [ // 内容与口才模块题目
                 {
                 id: 1,
                 type: 'single',
@@ -3960,7 +3968,7 @@
                 explanation: '正确。没有捷径，唯有持续地输入、思考、练习和复盘。'
             }
             ],
-            4: [ // 粉丝与营收模块题目
+            5: [ // 粉丝与营收模块题目
                 {
                 id: 1,
                 type: 'single',
@@ -5212,7 +5220,7 @@
                 explanation: '正确。保持感恩之心，同时坚守自己的原则和底线，是健康的关系。'
             }
             ],
-            5: [ // 心态与职业观模块题目
+            6: [ // 心态与职业观模块题目
                             {
                 id: 1,
                 type: 'single',
@@ -6533,7 +6541,7 @@
                 questions: generateQuestions(moduleId),
                 currentIndex: 0,
                 answers: {},
-                timeLeft: 3600, // 60分钟考试时间（测试用，实际可改为3600秒）
+                timeLeft: moduleId === 6 ? 1200 : 600, // 综合考试20分钟，其他10分钟
                 timer: null
             };
             showExam(moduleId);
@@ -6541,21 +6549,55 @@
             saveExamState();
         }
 
-        // 生成随机题目
+        // 生成随机题目 - 修复：确保包含各种题型
         function generateQuestions(moduleId) {
-            const questions = questionBank[moduleId] || [];
-            // 如果题目数量不足，复制已有题目以达到考试要求
-            if (questions.length < 3) {
-                const needed = 3 - questions.length;
-                const additional = [];
-                for (let i = 0; i < needed; i++) {
-                    additional.push(questions[i % questions.length]);
+            // 如果是综合考试模块（ID为1），从所有题库中随机选择
+            if (moduleId === 1) {
+                // 收集所有题目
+                let allQuestions = [];
+                for (const key in questionBank) {
+                    if (questionBank.hasOwnProperty(key)) {
+                        allQuestions = allQuestions.concat(questionBank[key]);
+                    }
                 }
-                return [...questions, ...additional].slice(0, 3);
+                
+                // 随机选择10题
+                return allQuestions
+                    .sort(() => Math.random() - 0.5)
+                    .slice(0, 10);
             }
+            
+            // 普通模块考试
+            const questions = questionBank[moduleId] || [];
+            
+            // 如果题目数量不足，确保包含各种题型
+            if (questions.length < 3) {
+                const singleChoice = questions.filter(q => q.type === 'single');
+                const multipleChoice = questions.filter(q => q.type === 'multiple');
+                const judgment = questions.filter(q => q.type === 'judgment');
+                
+                const result = [];
+                
+                // 尽量包含每种题型
+                if (singleChoice.length > 0) result.push(singleChoice[0]);
+                if (multipleChoice.length > 0) result.push(multipleChoice[0]);
+                if (judgment.length > 0) result.push(judgment[0]);
+                
+                // 如果还不够，从原题目中补充
+                if (result.length < 3) {
+                    const needed = 3 - result.length;
+                    for (let i = 0; i < needed; i++) {
+                        result.push(questions[i % questions.length]);
+                    }
+                }
+                
+                return result.slice(0, 3);
+            }
+            
+            // 正常情况：随机排序并选择前30题
             return questions
                 .sort(() => Math.random() - 0.5)
-                .slice(0, 30); // 每次考试30题（测试用，实际可改为30题）
+                .slice(0, 30);
         }
 
         // 显示考试界面
@@ -6747,6 +6789,9 @@
         // 显示考试结果
         function showResult(score) {
             const mainContent = document.querySelector('main');
+            const module = examModules.find(m => m.id === examState.moduleId);
+            const isComprehensive = module && module.isComprehensive;
+            
             mainContent.innerHTML = `
                 <div class="max-w-3xl mx-auto bg-white rounded-xl shadow-lg p-6 text-center">
                     <h2 class="text-2xl md:text-3xl font-bold mb-6 gradient-text">考试完成！</h2>
@@ -6779,6 +6824,7 @@
                     <div class="space-y-3 mb-6">
                         <p class="text-base md:text-lg">${score >= 60 ? '恭喜通过考试！' : '继续加油，你可以的！'}</p>
                         <p class="text-gray-500 text-sm md:text-base">答对题目：${calculateCorrectAnswers()} / ${examState.questions.length}</p>
+                        ${isComprehensive ? '<p class="text-sm text-blue-600">本次考试包含所有模块的综合题目</p>' : ''}
                     </div>
                     <div class="flex flex-col md:flex-row justify-center space-y-3 md:space-y-0 md:space-x-4">
                         <button onclick="reviewExam()" class="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
