@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>抖音主播培训考试系统</title>
+    <title>九天乐传媒</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Font Awesome -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     
     <style>
+        /* 原有样式保持不变 */
         @keyframes float {
             0% { transform: translateY(0px); }
             50% { transform: translateY(-10px); }
@@ -148,6 +149,60 @@
                 display: none;
             }
         }
+
+        /* 登录表单样式 */
+        .login-form {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+        }
+
+        /* 用户信息卡片 */
+        .user-card {
+            background: linear-gradient(135deg, #FF3CAC, #784BA0);
+            color: white;
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        /* 打卡日历 */
+        .calendar-day {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            margin: 4px;
+            cursor: pointer;
+        }
+
+        .calendar-day.checked {
+            background: linear-gradient(45deg, #FF3CAC, #784BA0);
+            color: white;
+        }
+
+        /* 题目解析页面 */
+        .question-item {
+            border-left: 4px solid #784BA0;
+            background: #f9f9f9;
+        }
+        
+        /* 新增推荐激励计划样式 */
+        .referral-program {
+            background: linear-gradient(135deg, #FFFBEB, #FEF3C7);
+            border: 1px solid #F59E0B;
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: 20px;
+        }
+        
+        .referral-program h4 {
+            color: #D97706;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
     </style>
 
     <script>
@@ -162,6 +217,18 @@
                 }
             }
         }
+
+        // 用户数据
+        let userData = {
+            isLoggedIn: false,
+            username: '',
+            nickname: '',
+            realName: '',
+            phone: '',
+            idCard: '',
+            examRecords: [],
+            examCalendar: {}
+        };
 
         // 考试模块数据
         const examModules = [
@@ -6486,12 +6553,406 @@
 
         // 页面加载完成后初始化
         document.addEventListener('DOMContentLoaded', () => {
+            loadUserData();
+            if (!userData.isLoggedIn) {
+                showLoginForm();
+            } else {
+                initSystem();
+            }
+        });
+
+        // 加载用户数据
+        function loadUserData() {
+            const savedData = localStorage.getItem('userData');
+            if (savedData) {
+                userData = JSON.parse(savedData);
+            }
+        }
+
+        // 保存用户数据
+        function saveUserData() {
+            localStorage.setItem('userData', JSON.stringify(userData));
+        }
+
+        // 显示登录表单
+        function showLoginForm() {
+            const mainContent = document.querySelector('main');
+            mainContent.innerHTML = `
+                <div class="flex items-center justify-center min-h-screen">
+                    <div class="login-form w-full max-w-md p-8">
+                        <div class="text-center mb-8">
+                            <h2 class="text-3xl font-bold gradient-text">主播培训系统</h2>
+                            <p class="text-gray-600 mt-2">请输入账号信息登录或注册</p>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="block text-gray-700 text-sm font-bold mb-2" for="username">
+                                主播艺名
+                            </label>
+                            <input class="shadow appearance-none border rounded w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+                                id="username" type="text" placeholder="请输入主播艺名">
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="block text-gray-700 text-sm font-bold mb-2" for="password">
+                                密码
+                            </label>
+                            <input class="shadow appearance-none border rounded w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+                                id="password" type="password" placeholder="请输入密码">
+                        </div>
+                        
+                        <div class="mb-4" id="realname-container" style="display: none;">
+                            <label class="block text-gray-700 text-sm font-bold mb-2" for="realname">
+                                真实姓名
+                            </label>
+                            <input class="shadow appearance-none border rounded w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+                                id="realname" type="text" placeholder="请输入真实姓名">
+                        </div>
+                        
+                        <div class="mb-4" id="phone-container" style="display: none;">
+                            <label class="block text-gray-700 text-sm font-bold mb-2" for="phone">
+                                手机号码
+                            </label>
+                            <input class="shadow appearance-none border rounded w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+                                id="phone" type="tel" placeholder="请输入手机号码">
+                        </div>
+                        
+                        <div class="mb-4" id="idcard-container" style="display: none;">
+                            <label class="block text-gray-700 text-sm font-bold mb-2" for="idcard">
+                                身份证号
+                            </label>
+                            <input class="shadow appearance-none border rounded w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+                                id="idcard" type="text" placeholder="请输入身份证号码">
+                        </div>
+                        
+                        <div class="mb-4" id="invite-code-container" style="display: none;">
+                            <label class="block text-gray-700 text-sm font-bold mb-2" for="invite-code">
+                                邀请码
+                            </label>
+                            <input class="shadow appearance-none border rounded w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+                                id="invite-code" type="password" placeholder="请输入邀请码">
+                        </div>
+                        
+                        <div class="flex items-center justify-between mb-4">
+                            <button id="toggle-btn" class="text-sm text-blue-500 hover:text-blue-800" onclick="toggleLoginMode()">
+                                切换到注册
+                            </button>
+                        </div>
+                        
+                        <div id="referral-program" class="referral-program" style="display: none;">
+                            <h4><i class="fas fa-gift mr-2"></i>推荐激励计划</h4>
+                            <p class="text-sm text-amber-700">每推荐一个新主播完成有效开播时长任务就能获得500-2000元现金介绍费，也可以选择成为该主播的经纪人，永久拿1个点流水的奖励分成。联系方式：15581688480</p>
+                        </div>
+                        
+                        <div class="flex flex-col space-y-4 mt-4">
+                            <button id="login-btn" class="bg-gradient-to-r from-primary to-secondary hover:opacity-90 text-white font-bold py-3 px-4 rounded focus:outline-none focus:shadow-outline" 
+                                type="button" onclick="login()">
+                                登录
+                            </button>
+                            <button id="register-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-4 rounded focus:outline-none focus:shadow-outline" 
+                                type="button" onclick="register()" style="display: none;">
+                                注册
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 切换登录/注册模式
+        let isLoginMode = true;
+        function toggleLoginMode() {
+            isLoginMode = !isLoginMode;
+            const toggleBtn = document.getElementById('toggle-btn');
+            const loginBtn = document.getElementById('login-btn');
+            const registerBtn = document.getElementById('register-btn');
+            const realnameContainer = document.getElementById('realname-container');
+            const phoneContainer = document.getElementById('phone-container');
+            const idcardContainer = document.getElementById('idcard-container');
+            const inviteCodeContainer = document.getElementById('invite-code-container');
+            const referralProgram = document.getElementById('referral-program');
+            
+            if (isLoginMode) {
+                toggleBtn.textContent = '切换到注册';
+                loginBtn.style.display = 'block';
+                registerBtn.style.display = 'none';
+                realnameContainer.style.display = 'none';
+                phoneContainer.style.display = 'none';
+                idcardContainer.style.display = 'none';
+                inviteCodeContainer.style.display = 'none';
+                referralProgram.style.display = 'none';
+            } else {
+                toggleBtn.textContent = '切换到登录';
+                loginBtn.style.display = 'none';
+                registerBtn.style.display = 'block';
+                realnameContainer.style.display = 'block';
+                phoneContainer.style.display = 'block';
+                idcardContainer.style.display = 'block';
+                inviteCodeContainer.style.display = 'block';
+                referralProgram.style.display = 'block';
+            }
+        }
+
+        // 登录功能
+        function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            if (!username || !password) {
+                alert('请输入主播艺名和密码');
+                return;
+            }
+            
+            // 模拟登录验证
+            const users = JSON.parse(localStorage.getItem('users') || '{}');
+            if (users[username] && users[username].password === password) {
+                userData.isLoggedIn = true;
+                userData.username = username;
+                userData.nickname = users[username].nickname;
+                userData.realName = users[username].realName;
+                userData.phone = users[username].phone;
+                userData.idCard = users[username].idCard;
+                userData.examRecords = users[username].examRecords || [];
+                userData.examCalendar = users[username].examCalendar || {};
+                
+                saveUserData();
+                initSystem();
+            } else {
+                alert('主播艺名或密码错误');
+            }
+        }
+
+        // 注册功能
+        function register() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const realname = document.getElementById('realname').value;
+            const phone = document.getElementById('phone').value;
+            const idcard = document.getElementById('idcard').value;
+            const inviteCode = document.getElementById('invite-code').value;
+            
+            if (!username || !password || !realname || !phone || !idcard || !inviteCode) {
+                alert('请填写所有信息');
+                return;
+            }
+            
+            // 验证邀请码
+            if (inviteCode !== 'cnyoyo') {
+                alert('邀请码不正确，请输入正确的邀请码');
+                return;
+            }
+            
+            // 验证手机号格式
+            const phoneRegex = /^1[3-9]\d{9}$/;
+            if (!phoneRegex.test(phone)) {
+                alert('请输入正确的手机号码');
+                return;
+            }
+            
+            // 验证身份证格式
+            const idCardRegex = /(^\d{15}$)|(^\d{18}$)|(^\d{17}(\d|X|x)$)/;
+            if (!idCardRegex.test(idcard)) {
+                alert('请输入正确的身份证号码');
+                return;
+            }
+            
+            // 保存用户信息
+            const users = JSON.parse(localStorage.getItem('users') || '{}');
+            if (users[username]) {
+                alert('已注册成功');
+                return;
+            }
+            
+            users[username] = {
+                password: password,
+                nickname: username, // 主播艺名作为昵称
+                realName: realname,
+                phone: phone,
+                idCard: idcard,
+                examRecords: [],
+                examCalendar: {}
+            };
+            
+            localStorage.setItem('users', JSON.stringify(users));
+            
+            // 自动登录
+            userData.isLoggedIn = true;
+            userData.username = username;
+            userData.nickname = username;
+            userData.realName = realname;
+            userData.phone = phone;
+            userData.idCard = idcard;
+            userData.examRecords = [];
+            userData.examCalendar = {};
+            
+            saveUserData();
+            initSystem();
+        }
+
+        // 初始化系统
+        function initSystem() {
             initModules();
             initAnimations();
             updateProgressRings();
             loadExamState();
             setupMobileMenu();
-        });
+            updateUserInfo();
+            updateExamCalendar();
+        }
+
+        // 更新用户信息显示
+        function updateUserInfo() {
+            const userInfoBtn = document.getElementById('user-info');
+            if (userInfoBtn) {
+                userInfoBtn.innerHTML = `
+                    <i class="fas fa-user mr-2"></i>${userData.nickname || userData.username}
+                `;
+            }
+        }
+
+        // 更新考试日历
+        function updateExamCalendar() {
+            const calendar = document.getElementById('exam-calendar');
+            if (!calendar) return;
+            
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = today.getMonth();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            
+            let calendarHTML = '<div class="grid grid-cols-7 gap-2">';
+            
+            // 添加日期
+            for (let i = 1; i <= daysInMonth; i++) {
+                const dateStr = `${year}-${month + 1}-${i}`;
+                const isChecked = userData.examCalendar[dateStr];
+                const isToday = i === today.getDate();
+                
+                calendarHTML += `
+                    <div class="calendar-day ${isChecked ? 'checked' : ''} ${isToday ? 'font-bold border-2 border-primary' : ''}">
+                        ${i}
+                    </div>
+                `;
+            }
+            
+            calendarHTML += '</div>';
+            calendar.innerHTML = calendarHTML;
+        }
+
+        // 显示用户信息面板
+        function showUserPanel() {
+            const mainContent = document.querySelector('main');
+            mainContent.innerHTML = `
+                <div class="max-w-4xl mx-auto">
+                    <div class="user-card p-6 mb-6">
+                        <div class="flex items-center">
+                            <div class="w-16 h-16 rounded-full bg-white flex items-center justify-center mr-4">
+                                <i class="fas fa-user text-2xl text-primary"></i>
+                            </div>
+                            <div>
+                                <h2 class="text-xl font-bold">${userData.nickname}</h2>
+                                <p class="opacity-80">${userData.realName} | ${userData.phone}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                        <h3 class="text-lg font-bold mb-4">本月考试打卡</h3>
+                        <div id="exam-calendar"></div>
+                        <div class="mt-4 text-center text-gray-600">
+                            已打卡 ${Object.keys(userData.examCalendar).length} 天
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h3 class="text-lg font-bold mb-4">考试记录</h3>
+                        <div class="space-y-4">
+                            ${userData.examRecords.length > 0 ? userData.examRecords.map(record => `
+                                <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                                    <div>
+                                        <div class="font-medium">${examModules.find(m => m.id === record.moduleId)?.name}</div>
+                                        <div class="text-sm text-gray-500">${new Date(record.date).toLocaleDateString()}</div>
+                                    </div>
+                                    <div class="text-lg font-bold ${record.score >= 60 ? 'text-green-600' : 'text-red-600'}">
+                                        ${record.score}分
+                                    </div>
+                                </div>
+                            `).join('') : '<p class="text-gray-500 text-center">暂无考试记录</p>'}
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6 text-center">
+                        <button onclick="showAllQuestions()" class="px-4 py-2 bg-gradient-to-r from-primary to-secondary text-white rounded-lg hover:opacity-90 transition-opacity mr-4">
+                            查看全部题目解析
+                        </button>
+                        <button onclick="location.reload()" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors">
+                            返回首页
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            updateExamCalendar();
+        }
+
+        // 查看全部题目解析
+        function showAllQuestions() {
+            const mainContent = document.querySelector('main');
+            let allQuestionsHTML = '';
+            
+            for (const moduleId in questionBank) {
+                const module = examModules.find(m => m.id === parseInt(moduleId));
+                allQuestionsHTML += `
+                    <h3 class="text-xl font-bold mt-8 mb-4 gradient-text">${module.name}</h3>
+                    <div class="space-y-6">
+                        ${questionBank[moduleId].map((question, index) => `
+                            <div class="question-item p-4 md:p-6 rounded-lg">
+                                <div class="text-base md:text-lg font-medium mb-3">
+                                    ${index + 1}. ${question.question}
+                                    <span class="question-type-tag">${question.type === 'single' ? '单选题' : question.type === 'multiple' ? '多选题' : '判断题'}</span>
+                                </div>
+                                <div class="space-y-2 mb-3">
+                                    ${question.options.map((option, i) => {
+                                        let isCorrectAnswer = false;
+                                        
+                                        if (question.type === 'multiple') {
+                                            isCorrectAnswer = Array.isArray(question.answer) && question.answer.includes(i);
+                                        } else {
+                                            isCorrectAnswer = question.answer === i;
+                                        }
+                                        
+                                        return `
+                                            <div class="flex items-center space-x-2 p-2 ${isCorrectAnswer ? 'text-green-700' : 'text-gray-700'}">
+                                                ${isCorrectAnswer ? '<i class="fas fa-check text-green-500 mr-1"></i>' : ''}
+                                                <span class="text-sm md:text-base">${option}</span>
+                                            </div>
+                                        `;
+                                    }).join('')}
+                                </div>
+                                <div class="text-gray-600 bg-white p-3 rounded text-sm md:text-base">
+                                    <span class="font-bold">解析：</span>${question.explanation}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+            
+            mainContent.innerHTML = `
+                <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-4 md:p-8">
+                    <h2 class="text-xl md:text-2xl font-bold mb-6 gradient-text">全部题目解析</h2>
+                    ${allQuestionsHTML}
+                    <div class="mt-8 text-center">
+                        <button onclick="showUserPanel()" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors mr-4">
+                            返回个人中心
+                        </button>
+                        <button onclick="location.reload()" class="px-4 py-2 bg-gradient-to-r from-primary to-secondary text-white rounded-lg hover:opacity-90 transition-opacity">
+                            返回首页
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
 
         // 设置移动端菜单
         function setupMobileMenu() {
@@ -6507,7 +6968,7 @@
             
             if (userBtn) {
                 userBtn.addEventListener('click', () => {
-                    alert('个人中心功能即将开放');
+                    showUserPanel();
                 });
             }
             
@@ -6541,7 +7002,7 @@
                 questions: generateQuestions(moduleId),
                 currentIndex: 0,
                 answers: {},
-                timeLeft: moduleId === 6 ? 1200 : 600, // 综合考试20分钟，其他10分钟
+                timeLeft: moduleId === 1 ? 1200 : 600, // 综合考试20分钟，其他10分钟
                 timer: null
             };
             showExam(moduleId);
@@ -6549,7 +7010,7 @@
             saveExamState();
         }
 
-        // 生成随机题目 - 修复：确保包含各种题型
+        // 生成随机题目
         function generateQuestions(moduleId) {
             // 如果是综合考试模块（ID为1），从所有题库中随机选择
             if (moduleId === 1) {
@@ -6752,6 +7213,20 @@
         function finishExam() {
             clearInterval(examState.timer);
             const score = calculateScore();
+            
+            // 记录考试打卡
+            const today = new Date();
+            const dateStr = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
+            userData.examCalendar[dateStr] = true;
+            
+            // 记录考试成绩
+            userData.examRecords.push({
+                moduleId: examState.moduleId,
+                score: score,
+                date: today.toISOString()
+            });
+            
+            saveUserData();
             showResult(score);
             sessionStorage.removeItem('examState');
         }
@@ -6829,6 +7304,9 @@
                     <div class="flex flex-col md:flex-row justify-center space-y-3 md:space-y-0 md:space-x-4">
                         <button onclick="reviewExam()" class="px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
                             查看解析
+                        </button>
+                        <button onclick="showUserPanel()" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors">
+                            个人中心
                         </button>
                         <button onclick="location.reload()" class="px-4 py-2 bg-gradient-to-r from-primary to-secondary text-white rounded-lg hover:opacity-90 transition-opacity">
                             返回首页
@@ -6934,6 +7412,9 @@
                         }).join('')}
                     </div>
                     <div class="mt-6 text-center">
+                        <button onclick="showUserPanel()" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors mr-4">
+                            个人中心
+                        </button>
                         <button onclick="location.reload()" class="px-4 py-2 bg-gradient-to-r from-primary to-secondary text-white rounded-lg hover:opacity-90 transition-opacity">
                             返回首页
                         </button>
@@ -7042,9 +7523,6 @@
                  class="w-8 h-8">
             <h1 class="text-lg font-bold gradient-text">主播培训</h1>
         </div>
-        <button onclick="location.reload()" class="px-3 py-1 bg-gradient-to-r from-primary to-secondary text-white rounded-lg text-sm">
-            九天乐传媒
-        </button>
     </nav>
 
     <!-- 桌面端顶部导航 -->
@@ -7053,12 +7531,12 @@
             <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 24 24'%3E%3Cpath fill='%23FF3CAC' d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-5-9h10v2H7z'/%3E%3C/svg%3E" 
                  alt="Logo" 
                  class="w-10 h-10">
-        <button onclick="location.reload()" class="px-3 py-1 bg-gradient-to-r from-primary to-secondary text-white rounded-lg text-sm">
-            九天乐传媒
+            <h1 class="text-xl font-bold gradient-text">九天乐传媒</h1>
         </div>
         <div class="flex items-center space-x-4">
-            <button class="px-4 py-2 rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow">
-            <button class="px-4 py-2 rounded-lg bg-primary text-white hover:opacity-90 transition-opacity">
+            <button id="user-info" onclick="showUserPanel()" class="px-4 py-2 rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow">
+                <i class="fas fa-user mr-2"></i>未登录
+            </button>
         </div>
     </nav>
 
@@ -7080,7 +7558,7 @@
     <div class="mobile-menu">
         <div id="mobile-home" class="mobile-menu-btn text-primary">
             <i class="fas fa-home text-lg"></i>
-            <span>九天乐传媒</span>
+            <span>首页</span>
         </div>
         <div id="mobile-user" class="mobile-menu-btn text-gray-600">
             <i class="fas fa-user text-lg"></i>
