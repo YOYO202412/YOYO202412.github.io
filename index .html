@@ -8339,17 +8339,6 @@
             }
         }
         
-        // 撤销签名
-        function undoSignature() {
-            if (signatureHistory.length > 0) {
-                sigCtx.clearRect(0, 0, signaturePadCanvas.width, signaturePadCanvas.height);
-                const previousState = signatureHistory.pop();
-                sigCtx.putImageData(previousState, 0, 0);
-            } else {
-                alert('没有可撤销的操作');
-            }
-        }
-        
         // 清除签名 - 增加确认提示
         function clearSignature() {
             if (signaturePadCanvas) {
