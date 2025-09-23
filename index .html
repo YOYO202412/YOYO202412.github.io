@@ -91,6 +91,51 @@
             border: 1px solid #ddd;
             border-radius: 4px;
         }
+        
+        /* 移动端签名优化样式 */
+        .contract-signature-canvas {
+            touch-action: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            background-color: #f9f9f9;
+        }
+        
+        .signature-controls {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+        }
+        
+        .signature-controls button {
+            flex: 1;
+            margin: 0 5px;
+            padding: 8px 12px;
+            font-size: 14px;
+        }
+        
+        .signature-tip {
+            background-color: #f0f9ff;
+            border-left: 4px solid #3b82f6;
+            padding: 8px 12px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        
+        @media (max-width: 768px) {
+            .contract-signature-canvas {
+                border: 2px dashed #ccc;
+            }
+            
+            .signature-controls {
+                flex-direction: column;
+            }
+            
+            .signature-controls button {
+                margin: 5px 0;
+            }
 
         /* 响应式调整 */
         @media (max-width: 768px) {
@@ -8158,45 +8203,187 @@
 
         // ================== 电子合同相关功能 ==================
         
-        // 初始化签名板
+        // 签名历史记录
+        let signatureHistory = [];
+        const MAX_HISTORY = 10;
+        
+        // 初始化签名板 - 优化移动端体验
         function initSignaturePad() {
             signaturePadCanvas = document.getElementById('signature-pad');
             sigCtx = signaturePadCanvas.getContext('2d');
+            
+            // 设置画布尺寸适配移动端
+            const container = signaturePadCanvas.parentElement;
+            const rect = container.getBoundingClientRect();
+            signaturePadCanvas.width = rect.width * 2; // 高清渲染
+            signaturePadCanvas.height = 240; // 固定高度，确保一致性
+            signaturePadCanvas.style.width = '100%';
+            signaturePadCanvas.style.height = '120px';
+            
+            // 设置绘制样式
             sigCtx.strokeStyle = '#000';
             sigCtx.lineWidth = 2.5;
             sigCtx.lineCap = 'round';
+            sigCtx.lineJoin = 'round';
             
-            signaturePadCanvas.addEventListener('pointerdown', e => {
-                drawing = true;
+            // 存储绘制点用于平滑处理
+            let points = [];
+            let isDrawing = false;
+            
+            // 触摸事件处理
+            signaturePadCanvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+            signaturePadCanvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+            signaturePadCanvas.addEventListener('touchend', handleTouchEnd);
+            
+            // 鼠标事件处理（桌面端）
+            signaturePadCanvas.addEventListener('mousedown', handleMouseDown);
+            signaturePadCanvas.addEventListener('mousemove', handleMouseMove);
+            signaturePadCanvas.addEventListener('mouseup', handleMouseUp);
+            signaturePadCanvas.addEventListener('mouseleave', handleMouseUp);
+            
+            function getTouchPos(e) {
                 const rect = signaturePadCanvas.getBoundingClientRect();
-                lastX = e.clientX - rect.left;
-                lastY = e.clientY - rect.top;
+                const scaleX = signaturePadCanvas.width / rect.width;
+                const scaleY = signaturePadCanvas.height / rect.height;
+                
+                if (e.type.includes('touch')) {
+                    return {
+                        x: (e.touches[0].clientX - rect.left) * scaleX,
+                        y: (e.touches[0].clientY - rect.top) * scaleY
+                    };
+                } else {
+                    return {
+                        x: (e.clientX - rect.left) * scaleX,
+                        y: (e.clientY - rect.top) * scaleY
+                    };
+                }
+            }
+            
+            function handleTouchStart(e) {
+                e.preventDefault();
+                const pos = getTouchPos(e);
+                startDrawing(pos.x, pos.y);
+            }
+            
+            function handleTouchMove(e) {
+                e.preventDefault();
+                if (!isDrawing) return;
+                const pos = getTouchPos(e);
+                draw(pos.x, pos.y);
+            }
+            
+            function handleTouchEnd() {
+                stopDrawing();
+            }
+            
+            function handleMouseDown(e) {
+                const pos = getTouchPos(e);
+                startDrawing(pos.x, pos.y);
+            }
+            
+            function handleMouseMove(e) {
+                if (!isDrawing) return;
+                const pos = getTouchPos(e);
+                draw(pos.x, pos.y);
+            }
+            
+            function handleMouseUp() {
+                stopDrawing();
+            }
+            
+            function startDrawing(x, y) {
+                isDrawing = true;
+                points = [{x, y}];
                 sigCtx.beginPath();
-                sigCtx.moveTo(lastX, lastY);
-            });
+                sigCtx.moveTo(x, y);
+                
+                // 保存当前状态用于撤销
+                saveSignatureState();
+            }
             
-            signaturePadCanvas.addEventListener('pointermove', e => {
-                if (!drawing) return;
-                const rect = signaturePadCanvas.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
-                sigCtx.lineTo(x, y);
-                sigCtx.stroke();
-                lastX = x;
-                lastY = y;
-            });
+            function draw(x, y) {
+                points.push({x, y});
+                
+                // 使用贝塞尔曲线平滑笔迹
+                if (points.length > 2) {
+                    const lastPoint = points[points.length - 1];
+                    const controlPoint = points[points.length - 2];
+                    
+                    sigCtx.quadraticCurveTo(
+                        controlPoint.x, controlPoint.y,
+                        (lastPoint.x + controlPoint.x) / 2, (lastPoint.y + controlPoint.y) / 2
+                    );
+                    sigCtx.stroke();
+                } else {
+                    sigCtx.lineTo(x, y);
+                    sigCtx.stroke();
+                }
+            }
             
-            window.addEventListener('pointerup', () => {
-                drawing = false;
-            });
+            function stopDrawing() {
+                isDrawing = false;
+                points = [];
+            }
         }
         
-        // 清除签名
+        // 保存签名状态
+        function saveSignatureState() {
+            if (signaturePadCanvas) {
+                const imageData = sigCtx.getImageData(0, 0, signaturePadCanvas.width, signaturePadCanvas.height);
+                signatureHistory.push(imageData);
+                
+                // 限制历史记录数量
+                if (signatureHistory.length > MAX_HISTORY) {
+                    signatureHistory.shift();
+                }
+            }
+        }
+        
+        // 撤销签名
+        function undoSignature() {
+            if (signatureHistory.length > 0) {
+                sigCtx.clearRect(0, 0, signaturePadCanvas.width, signaturePadCanvas.height);
+                const previousState = signatureHistory.pop();
+                sigCtx.putImageData(previousState, 0, 0);
+            } else {
+                alert('没有可撤销的操作');
+            }
+        }
+        
+        // 清除签名 - 增加确认提示
         function clearSignature() {
-            sigCtx.clearRect(0, 0, signaturePadCanvas.width, signaturePadCanvas.height);
+            if (signaturePadCanvas) {
+                // 检查是否有签名内容
+                const tempCanvas = document.createElement('canvas');
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCanvas.width = signaturePadCanvas.width;
+                tempCanvas.height = signaturePadCanvas.height;
+                tempCtx.drawImage(signaturePadCanvas, 0, 0);
+                
+                const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+                const data = imageData.data;
+                let hasContent = false;
+                
+                for (let i = 0; i < data.length; i += 4) {
+                    if (data[i + 3] !== 0) {
+                        hasContent = true;
+                        break;
+                    }
+                }
+                
+                if (hasContent) {
+                    if (confirm('确定要清除当前签名吗？')) {
+                        sigCtx.clearRect(0, 0, signaturePadCanvas.width, signaturePadCanvas.height);
+                        signatureHistory = []; // 清空历史记录
+                    }
+                } else {
+                    sigCtx.clearRect(0, 0, signaturePadCanvas.width, signaturePadCanvas.height);
+                    signatureHistory = []; // 清空历史记录
+                }
+            }
         }
         
-        // 打开合同模态框
+        // 打开合同模态框 - 优化移动端体验
         function openContractModal() {
             if (!userData.isLoggedIn) {
                 alert('请先登录');
@@ -8217,6 +8404,19 @@
                 `;
             }
             
+            // 添加移动端优化提示
+            if (/Mobi|Android/i.test(navigator.userAgent)) {
+                const signatureArea = document.querySelector('#contract-modal .mt-4');
+                if (signatureArea) {
+                    const tip = document.createElement('div');
+                    tip.className = 'signature-tip';
+                    tip.innerHTML = '<i class="fas fa-info-circle mr-1"></i>提示：使用手指在下方区域签名，可撤销或清除';
+                    signatureArea.insertBefore(tip, signatureArea.firstChild);
+                }
+            }
+            
+            // 重置历史记录
+            signatureHistory = [];
             initSignaturePad();
         }
         
@@ -8432,8 +8632,15 @@
             </div>
             <div class="mt-4">
                 <div class="mb-2 text-sm text-gray-600">签名：</div>
-                <canvas id="signature-pad" width="600" height="120" class="contract-signature-canvas w-full"></canvas>
-                <button onclick="clearSignature()" class="mt-2 px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 transition-colors">清除签名</button>
+                <canvas id="signature-pad" width="600" height="240" class="contract-signature-canvas w-full"></canvas>
+                <div class="signature-controls">
+                    <button onclick="clearSignature()" class="px-3 py-2 bg-gray-200 rounded hover:bg-gray-300 transition-colors">
+                        <i class="fas fa-eraser mr-1"></i>清除
+                    </button>
+                    <button onclick="undoSignature()" class="px-3 py-2 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 transition-colors">
+                        <i class="fas fa-undo mr-1"></i>撤销
+                    </button>
+                </div>
             </div>
             <div class="mt-4 flex items-center">
                 <input type="checkbox" id="agree-checkbox" class="mr-2">
