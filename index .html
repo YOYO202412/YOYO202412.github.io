@@ -8,9 +8,12 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Font Awesome -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- html2canvas & jsPDF for 合同功能 -->
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
     
     <style>
-        /* 原有样式保持不变 */
+        /* 样式保持不变 */
         @keyframes float {
             0% { transform: translateY(0px); }
             50% { transform: translateY(-10px); }
@@ -75,6 +78,20 @@
             font-size: 12px;
         }
         
+        /* 新增签名区域样式 */
+        .signature-container {
+            margin-top: 20px;
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+        }
+        
+        .signature-preview {
+            max-width: 300px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
         /* 响应式调整 */
         @media (max-width: 768px) {
             body {
@@ -203,6 +220,44 @@
             font-weight: bold;
             margin-bottom: 8px;
         }
+        
+        /* 电子合同相关样式 */
+        .contract-signature-canvas { 
+            border: 1px dashed #ddd; 
+            border-radius: 8px; 
+            touch-action: none; 
+        }
+
+        /* 管理员界面样式 */
+        .admin-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .admin-table th, .admin-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .admin-table th {
+            background-color: #f9fafb;
+            font-weight: 600;
+        }
+        
+        .admin-table tr:hover {
+            background-color: #f3f4f6;
+        }
+        
+        .status-banned {
+            color: #ef4444;
+            font-weight: 600;
+        }
+        
+        .status-active {
+            color: #10b981;
+            font-weight: 600;
+        }
     </style>
 
     <script>
@@ -227,7 +282,14 @@
             phone: '',
             idCard: '',
             examRecords: [],
-            examCalendar: {}
+            examCalendar: {},
+            isAdmin: false // 新增管理员标识
+        };
+
+        // 管理员账号信息
+        const adminAccount = {
+            username: 'mdmin',
+            password: 'mdmin123'
         };
 
         // 考试模块数据
@@ -6551,6 +6613,9 @@
             timer: null
         };
 
+        // 电子合同相关变量
+        let signaturePadCanvas, sigCtx, drawing = false, lastX = 0, lastY = 0;
+
         // 页面加载完成后初始化
         document.addEventListener('DOMContentLoaded', () => {
             loadUserData();
@@ -6693,32 +6758,58 @@
             }
         }
 
-        // 登录功能
+        // 登陆功能
         function login() {
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
             
             if (!username || !password) {
-                alert('请输入主播艺名和密码');
+                alert('请输入用户名和密码');
                 return;
             }
             
-            // 模拟登录验证
-            const users = JSON.parse(localStorage.getItem('users') || '{}');
-            if (users[username] && users[username].password === password) {
+            // 检查是否是管理员登录
+            if (username === adminAccount.username && password === adminAccount.password) {
                 userData.isLoggedIn = true;
                 userData.username = username;
-                userData.nickname = users[username].nickname;
-                userData.realName = users[username].realName;
-                userData.phone = users[username].phone;
-                userData.idCard = users[username].idCard;
-                userData.examRecords = users[username].examRecords || [];
-                userData.examCalendar = users[username].examCalendar || {};
+                userData.nickname = '管理员';
+                userData.isAdmin = true;
                 
                 saveUserData();
-                initSystem();
+                showAdminPanel();
+                return;
+            }
+            
+            // 普通用户登录验证
+            const users = JSON.parse(localStorage.getItem('users') || '{}');
+            const user = users[username];
+            
+            if (user) {
+                // 检查用户是否被封禁
+                if (user.banned) {
+                    alert('该账号已被封禁，请联系管理员');
+                    return;
+                }
+                
+                if (user.password === password) {
+                    userData.isLoggedIn = true;
+                    userData.username = username;
+                    userData.nickname = user.nickname;
+                    userData.realName = user.realName;
+                    userData.phone = user.phone;
+                    userData.idCard = user.idCard;
+                    userData.examRecords = user.examRecords || [];
+                    userData.examCalendar = user.examCalendar || {};
+                    userData.isAdmin = false;
+                    
+                    saveUserData();
+                    renderHomePage();
+                    initSystem();
+                } else {
+                    alert('用户名或密码错误');
+                }
             } else {
-                alert('主播艺名或密码错误');
+                alert('用户不存在');
             }
         }
 
@@ -6759,18 +6850,20 @@
             // 保存用户信息
             const users = JSON.parse(localStorage.getItem('users') || '{}');
             if (users[username]) {
-                alert('已注册成功');
+                alert('用户名已存在，请选择其他用户名');
                 return;
             }
             
             users[username] = {
                 password: password,
-                nickname: username, // 主播艺名作为昵称
+                nickname: username,
                 realName: realname,
                 phone: phone,
                 idCard: idcard,
                 examRecords: [],
-                examCalendar: {}
+                examCalendar: {},
+                banned: false,
+                createTime: new Date().toISOString()
             };
             
             localStorage.setItem('users', JSON.stringify(users));
@@ -6784,13 +6877,70 @@
             userData.idCard = idcard;
             userData.examRecords = [];
             userData.examCalendar = {};
+            userData.isAdmin = false;
             
             saveUserData();
+            renderHomePage();
             initSystem();
+        }
+
+        // 退出登录功能
+        function logout() {
+            if (confirm('确定要退出登录吗？')) {
+                // 清除用户登录数据
+                userData = {
+                    isLoggedIn: false,
+                    username: '',
+                    nickname: '',
+                    realName: '',
+                    phone: '',
+                    idCard: '',
+                    examRecords: [],
+                    examCalendar: {},
+                    isAdmin: false
+                };
+                
+                // 保存到本地存储
+                saveUserData();
+                
+                // 清除考试状态
+                sessionStorage.removeItem('examState');
+                
+                // 显示登录表单
+                showLoginForm();
+                
+                // 更新顶部导航栏显示
+                updateUserInfo();
+                
+                alert('已成功退出登录！');
+            }
+        }
+
+        // 渲染首页内容
+        function renderHomePage() {
+            const mainContent = document.querySelector('main');
+            mainContent.innerHTML = `
+                <!-- 欢迎信息 -->
+                <div class="welcome-section text-center mb-8 md:mb-12">
+                    <h2 class="text-3xl md:text-4xl font-bold mb-3 md:mb-4">主播培训系统</h2>
+                    <p class="text-gray-600 text-sm md:text-base">这里将帮助你掌握成为优秀主播所需的各项技能</p>
+                </div>
+
+                <!-- Bento Grid 布局 -->
+                <div id="bento-grid" class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 max-w-6xl mx-auto">
+                    <!-- 模块卡片将通过JavaScript动态生成 -->
+                </div>
+            `;
         }
 
         // 初始化系统
         function initSystem() {
+            // 如果是管理员，显示管理员面板
+            if (userData.isAdmin) {
+                showAdminPanel();
+                return;
+            }
+            
             initModules();
             initAnimations();
             updateProgressRings();
@@ -6806,6 +6956,7 @@
             if (userInfoBtn) {
                 userInfoBtn.innerHTML = `
                     <i class="fas fa-user mr-2"></i>${userData.nickname || userData.username}
+                    ${userData.isAdmin ? '<span class="ml-2 bg-red-500 text-white text-xs px-2 py-1 rounded">管理员</span>' : ''}
                 `;
             }
         }
@@ -6837,6 +6988,491 @@
             
             calendarHTML += '</div>';
             calendar.innerHTML = calendarHTML;
+        }
+
+        // 显示管理员面板
+        function showAdminPanel() {
+            const mainContent = document.querySelector('main');
+            mainContent.innerHTML = `
+                <div class="max-w-6xl mx-auto">
+                    <div class="user-card p-6 mb-6">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <div class="w-16 h-16 rounded-full bg-white flex items-center justify-center mr-4">
+                                    <i class="fas fa-user-shield text-2xl text-primary"></i>
+                                </div>
+                                <div>
+                                    <h2 class="text-xl font-bold">管理员面板</h2>
+                                    <p class="opacity-80">欢迎，${userData.nickname}</p>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-sm">用户总数: <span id="user-count">0</span></p>
+                                <p class="text-sm">封禁用户: <span id="banned-count">0</span></p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-bold">用户管理</h3>
+                            <div class="flex space-x-2">
+                                <button onclick="showAddUserModal()" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors">
+                                    <i class="fas fa-plus mr-2"></i>添加用户
+                                </button>
+                                <button onclick="refreshUserList()" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+                                    <i class="fas fa-sync-alt mr-2"></i>刷新
+                                </button>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="admin-table">
+                                <thead>
+                                    <tr>
+                                        <th>用户名</th>
+                                        <th>真实姓名</th>
+                                        <th>手机号</th>
+                                        <th>注册时间</th>
+                                        <th>状态</th>
+                                        <th>考试记录</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="user-list">
+                                    <!-- 用户列表将通过JavaScript动态生成 -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h3 class="text-lg font-bold mb-4">合同管理</h3>
+                        <div id="contracts-admin-list" class="space-y-3 max-h-96 overflow-auto">
+                            <!-- 合同列表将通过JavaScript动态生成 -->
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6 text-center">
+                        <button onclick="renderHomePage(); initSystem();" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors mr-4">
+                            返回首页
+                        </button>
+                        <button onclick="logout()" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">
+                            <i class="fas fa-sign-out-alt mr-2"></i>退出登录
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            loadUserList();
+            loadAdminContractsList();
+        }
+
+        // 加载用户列表
+        function loadUserList() {
+            const users = JSON.parse(localStorage.getItem('users') || '{}');
+            const userList = document.getElementById('user-list');
+            const userCount = document.getElementById('user-count');
+            const bannedCount = document.getElementById('banned-count');
+            
+            if (!userList) return;
+            
+            let bannedUsers = 0;
+            let userListHTML = '';
+            
+            for (const username in users) {
+                const user = users[username];
+                if (username === adminAccount.username) continue; // 跳过管理员账号
+                
+                if (user.banned) bannedUsers++;
+                
+                userListHTML += `
+                    <tr>
+                        <td>${username}</td>
+                        <td>${user.realName || '-'}</td>
+                        <td>${user.phone || '-'}</td>
+                        <td>${new Date(user.createTime || new Date()).toLocaleDateString()}</td>
+                        <td class="${user.banned ? 'status-banned' : 'status-active'}">
+                            ${user.banned ? '已封禁' : '正常'}
+                        </td>
+                        <td>${user.examRecords ? user.examRecords.length : 0} 次</td>
+                        <td>
+                            <button onclick="editUser('${username}')" class="px-2 py-1 bg-blue-100 text-blue-600 rounded text-sm hover:bg-blue-200 transition-colors mr-1">
+                                编辑
+                            </button>
+                            <button onclick="toggleBanUser('${username}', ${!user.banned})" class="px-2 py-1 ${user.banned ? 'bg-green-100 text-green-600' : 'bg-yellow-100 text-yellow-600'} rounded text-sm hover:opacity-90 transition-colors mr-1">
+                                ${user.banned ? '解封' : '封禁'}
+                            </button>
+                            <button onclick="deleteUser('${username}')" class="px-2 py-1 bg-red-100 text-red-600 rounded text-sm hover:bg-red-200 transition-colors">
+                                删除
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }
+            
+            userList.innerHTML = userListHTML || '<tr><td colspan="7" class="text-center py-4 text-gray-500">暂无用户数据</td></tr>';
+            if (userCount) userCount.textContent = Object.keys(users).length - 1; // 减去管理员账号
+            if (bannedCount) bannedCount.textContent = bannedUsers;
+        }
+
+        // 刷新用户列表
+        function refreshUserList() {
+            loadUserList();
+            alert('用户列表已刷新');
+        }
+
+        // 显示添加用户模态框
+        function showAddUserModal() {
+            const modalHTML = `
+                <div class="fixed inset-0 z-60 flex items-center justify-center bg-black bg-opacity-50">
+                    <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 relative mx-4">
+                        <button onclick="closeModal()" class="absolute right-4 top-4 text-gray-500 hover:text-gray-700"><i class="fas fa-times"></i></button>
+                        <h3 class="text-xl font-bold mb-4 gradient-text">添加新用户</h3>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-gray-700 text-sm font-bold mb-2">用户名</label>
+                                <input type="text" id="new-username" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="请输入用户名">
+                            </div>
+                            <div>
+                                <label class="block text-gray-700 text-sm font-bold mb-2">密码</label>
+                                <input type="password" id="new-password" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="请输入密码">
+                            </div>
+                            <div>
+                                <label class="block text-gray-700 text-sm font-bold mb-2">真实姓名</label>
+                                <input type="text" id="new-realname" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="请输入真实姓名">
+                            </div>
+                            <div>
+                                <label class="block text-gray-700 text-sm font-bold mb-2">手机号</label>
+                                <input type="tel" id="new-phone" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="请输入手机号">
+                            </div>
+                            <div>
+                                <label class="block text-gray-700 text-sm font-bold mb-2">身份证号</label>
+                                <input type="text" id="new-idcard" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="请输入身份证号">
+                            </div>
+                        </div>
+                        <div class="mt-6 text-right">
+                            <button onclick="closeModal()" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors mr-2">取消</button>
+                            <button onclick="addNewUser()" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors">添加</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+        }
+
+        // 关闭模态框
+        function closeModal() {
+            const modal = document.querySelector('.fixed.inset-0.z-60');
+            if (modal) modal.remove();
+        }
+
+        // 添加新用户
+        function addNewUser() {
+            const username = document.getElementById('new-username').value;
+            const password = document.getElementById('new-password').value;
+            const realname = document.getElementById('new-realname').value;
+            const phone = document.getElementById('new-phone').value;
+            const idcard = document.getElementById('new-idcard').value;
+            
+            if (!username || !password || !realname || !phone || !idcard) {
+                alert('请填写所有信息');
+                return;
+            }
+            
+            // 验证手机号格式
+            const phoneRegex = /^1[3-9]\d{9}$/;
+            if (!phoneRegex.test(phone)) {
+                alert('请输入正确的手机号码');
+                return;
+            }
+            
+            // 验证身份证格式
+            const idCardRegex = /(^\d{15}$)|(^\d{18}$)|(^\d{17}(\d|X|x)$)/;
+            if (!idCardRegex.test(idcard)) {
+                alert('请输入正确的身份证号码');
+                return;
+            }
+            
+            const users = JSON.parse(localStorage.getItem('users') || '{}');
+            
+            if (users[username]) {
+                alert('用户名已存在');
+                return;
+            }
+            
+            users[username] = {
+                password: password,
+                nickname: username,
+                realName: realname,
+                phone: phone,
+                idCard: idcard,
+                examRecords: [],
+                examCalendar: {},
+                banned: false,
+                createTime: new Date().toISOString()
+            };
+            
+            localStorage.setItem('users', JSON.stringify(users));
+            closeModal();
+            loadUserList();
+            alert('用户添加成功');
+        }
+
+        // 编辑用户
+        function editUser(username) {
+            const users = JSON.parse(localStorage.getItem('users') || '{}');
+            const user = users[username];
+            
+            if (!user) {
+                alert('用户不存在');
+                return;
+            }
+            
+            const modalHTML = `
+                <div class="fixed inset-0 z-60 flex items-center justify-center bg-black bg-opacity-50">
+                    <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 relative mx-4">
+                        <button onclick="closeModal()" class="absolute right-4 top-4 text-gray-500 hover:text-gray-700"><i class="fas fa-times"></i></button>
+                        <h3 class="text-xl font-bold mb-4 gradient-text">编辑用户</h3>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-gray-700 text-sm font-bold mb-2">用户名</label>
+                                <input type="text" value="${username}" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight bg-gray-100" disabled>
+                            </div>
+                            <div>
+                                <label class="block text-gray-700 text-sm font-bold mb-2">密码</label>
+                                <input type="password" id="edit-password" value="${user.password}" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="请输入新密码">
+                            </div>
+                            <div>
+                                <label class="block text-gray-700 text-sm font-bold mb-2">真实姓名</label>
+                                <input type="text" id="edit-realname" value="${user.realName || ''}" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="请输入真实姓名">
+                            </div>
+                            <div>
+                                <label class="block text-gray-700 text-sm font-bold mb-2">手机号</label>
+                                <input type="tel" id="edit-phone" value="${user.phone || ''}" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="请输入手机号">
+                            </div>
+                            <div>
+                                <label class="block text-gray-700 text-sm font-bold mb-2">身份证号</label>
+                                <input type="text" id="edit-idcard" value="${user.idCard || ''}" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="请输入身份证号">
+                            </div>
+                        </div>
+                        <div class="mt-6 text-right">
+                            <button onclick="closeModal()" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors mr-2">取消</button>
+                            <button onclick="saveUserEdit('${username}')" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">保存</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+        }
+
+        // 保存用户编辑
+        function saveUserEdit(username) {
+            const password = document.getElementById('edit-password').value;
+            const realname = document.getElementById('edit-realname').value;
+            const phone = document.getElementById('edit-phone').value;
+            const idcard = document.getElementById('edit-idcard').value;
+            
+            if (!password || !realname || !phone || !idcard) {
+                alert('请填写所有信息');
+                return;
+            }
+            
+            // 验证手机号格式
+            const phoneRegex = /^1[3-9]\d{9}$/;
+            if (!phoneRegex.test(phone)) {
+                alert('请输入正确的手机号码');
+                return;
+            }
+            
+            // 验证身份证格式
+            const idCardRegex = /(^\d{15}$)|(^\d{18}$)|(^\d{17}(\d|X|x)$)/;
+            if (!idCardRegex.test(idcard)) {
+                alert('请输入正确的身份证号码');
+                return;
+            }
+            
+            const users = JSON.parse(localStorage.getItem('users') || '{}');
+            
+            if (!users[username]) {
+                alert('用户不存在');
+                return;
+            }
+            
+            users[username].password = password;
+            users[username].realName = realname;
+            users[username].phone = phone;
+            users[username].idCard = idcard;
+            
+            localStorage.setItem('users', JSON.stringify(users));
+            closeModal();
+            loadUserList();
+            alert('用户信息已更新');
+        }
+
+        // 封禁/解封用户
+        function toggleBanUser(username, ban) {
+            const action = ban ? '封禁' : '解封';
+            if (!confirm(`确定要${action}用户 ${username} 吗？`)) return;
+            
+            const users = JSON.parse(localStorage.getItem('users') || '{}');
+            
+            if (!users[username]) {
+                alert('用户不存在');
+                return;
+            }
+            
+            users[username].banned = ban;
+            localStorage.setItem('users', JSON.stringify(users));
+            loadUserList();
+            alert(`用户已${action}`);
+        }
+
+        // 删除用户
+        function deleteUser(username) {
+            if (!confirm(`确定要删除用户 ${username} 吗？此操作不可恢复！`)) return;
+            
+            const users = JSON.parse(localStorage.getItem('users') || '{}');
+            
+            if (!users[username]) {
+                alert('用户不存在');
+                return;
+            }
+            
+            delete users[username];
+            localStorage.setItem('users', JSON.stringify(users));
+            loadUserList();
+            alert('用户已删除');
+        }
+
+        // 加载管理员合同列表
+        function loadAdminContractsList() {
+            const container = document.getElementById('contracts-admin-list');
+            const list = JSON.parse(localStorage.getItem('signedContracts') || '[]');
+            
+            if (!container) return;
+            
+            if (!list.length) {
+                container.innerHTML = '<p class="text-gray-500 text-center">暂无已签署合同</p>';
+                return;
+            }
+            
+            container.innerHTML = list.map(item => `
+                <div class="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
+                    <div class="flex-1">
+                        <div class="font-medium">${item.nickname} (${item.realName || '-'})</div>
+                        <div class="text-sm text-gray-500">
+                            手机: ${item.phone || '-'} | 身份证: ${item.idCard || '-'}
+                        </div>
+                        <div class="text-sm text-gray-500">签署时间: ${new Date(item.signedAt).toLocaleString()}</div>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button onclick='downloadContractImproved("${item.id}")' class="px-3 py-1 bg-blue-100 text-blue-600 rounded text-sm hover:bg-blue-200 transition-colors">
+                            下载PDF
+                        </button>
+                        <button onclick='deleteContract("${item.id}")' class="px-3 py-1 bg-red-100 text-red-600 rounded text-sm hover:bg-red-200 transition-colors">
+                            删除
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 下载合同
+        function downloadContractImproved(id) {
+            const list = JSON.parse(localStorage.getItem('signedContracts') || '[]');
+            const contract = list.find(item => item.id === id);
+            
+            if (!contract) {
+                alert('合同不存在');
+                return;
+            }
+            
+            // 创建合同内容的HTML元素
+            const contractContent = document.createElement('div');
+            contractContent.style.width = '794px'; // A4宽度
+            contractContent.style.padding = '20px';
+            contractContent.style.fontFamily = 'SimSun, serif';
+            contractContent.style.fontSize = '14px';
+            contractContent.style.lineHeight = '1.5';
+            
+            // 添加签名预览（如果有签名）
+            let signatureHTML = '';
+            if (contract.signature) {
+                signatureHTML = `
+                    <div class="signature-container">
+                        <p>乙方签名：</p>
+                        <img src="${contract.signature}" class="signature-preview" alt="签名" />
+                    </div>
+                `;
+            } else {
+                signatureHTML = `
+                    <div class="signature-container">
+                        <p>乙方签名：___________________</p>
+                    </div>
+                `;
+            }
+            
+            contractContent.innerHTML = `
+                <h1 style="text-align: center; margin-bottom: 30px;">主播电子合同</h1>
+                <div style="margin-bottom: 20px;">
+                    <p><strong>甲方：</strong>九天乐传媒有限公司</p>
+                    <p><strong>乙方：</strong>${contract.realName} (${contract.nickname})</p>
+                    <p><strong>手机：</strong>${contract.phone}</p>
+                    <p><strong>身份证：</strong>${contract.idCard}</p>
+                    <p><strong>签署时间：</strong>${new Date(contract.signedAt).toLocaleString()}</p>
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <p>1. 合作期限：本合同自签署之日起生效，有效期为1年。</p>
+                    <p>2. 收益分配：按照平台规则及双方协商确定的分成比例进行分配。</p>
+                    <p>3. 权利义务：甲方提供培训、运营支持，乙方需遵守平台规则和公司管理制度。</p>
+                    <p>4. 保密条款：双方应对合作期间知悉的商业秘密承担保密义务。</p>
+                    <p>5. 违约责任：任何一方违反本合同约定，应承担相应的违约责任。</p>
+                    <p>6. 争议解决：本合同履行过程中发生的争议，由双方协商解决；协商不成的，可向有管辖权的人民法院提起诉讼。</p>
+                </div>
+                <div style="margin-top: 50px;">
+                    <p>甲方签字/盖章：___________________</p>
+                    ${signatureHTML}
+                </div>
+            `;
+            
+            document.body.appendChild(contractContent);
+            
+            // 使用html2canvas将HTML转换为图片
+            html2canvas(contractContent).then(canvas => {
+                const imgData = canvas.toDataURL('image/png');
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF('p', 'mm', 'a4');
+                
+                const imgWidth = 210; // A4宽度mm
+                const pageHeight = 295; // A4高度mm
+                const imgHeight = canvas.height * imgWidth / canvas.width;
+                let heightLeft = imgHeight;
+                let position = 0;
+                
+                // 第一页
+                doc.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
+                
+                // 如果内容超过一页，添加剩余页面
+                while (heightLeft >= 0) {
+                    position = heightLeft - imgHeight;
+                    doc.addPage();
+                    doc.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                    heightLeft -= pageHeight;
+                }
+                
+                // 保存PDF
+                doc.save(`合同_${contract.realName}_${contract.nickname}.pdf`);
+                
+                // 移除临时元素
+                document.body.removeChild(contractContent);
+            }).catch(error => {
+                console.error('生成合同PDF错误:', error);
+                alert('生成合同PDF时出错，请重试');
+                document.body.removeChild(contractContent);
+            });
         }
 
         // 显示用户信息面板
@@ -6884,9 +7520,15 @@
                     <div class="mt-6 text-center">
                         <button onclick="showAllQuestions()" class="px-4 py-2 bg-gradient-to-r from-primary to-secondary text-white rounded-lg hover:opacity-90 transition-opacity mr-4">
                             查看全部题目解析
+    </button>
+    <button onclick="openContractModal()" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors mr-4">
+        申请海外直播
+    </button>
+    <button onclick="location.reload()" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors mr-4">
+        返回首页
                         </button>
-                        <button onclick="location.reload()" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors">
-                            返回首页
+                        <button onclick="logout()" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">
+                            <i class="fas fa-sign-out-alt mr-2"></i>退出登录
                         </button>
                     </div>
                 </div>
@@ -7055,10 +7697,10 @@
                 return result.slice(0, 3);
             }
             
-            // 正常情况：随机排序并选择前30题
+            // 正常情况：随机排序并选择前3题
             return questions
                 .sort(() => Math.random() - 0.5)
-                .slice(0, 30);
+                .slice(0, 3);
         }
 
         // 显示考试界面
@@ -7430,6 +8072,7 @@
                 const card = createModuleCard(module, index);
                 grid.appendChild(card);
             });
+            
         }
 
         // 创建模块卡片
@@ -7472,7 +8115,7 @@
                         </div>
                     </div>
                     <button onclick="startExam(${module.id})" 
-                            class="px-3 py-1 md:px-4 md:py-2 text-sm md:text-base bg-gradient-to-r from-primary via-secondary to-tertiary text-white rounded-lg hover:opacity-90 transition-opacity">
+                            class="px-3 py-1 md:px-4 md:py-2 text-sm md:text-base bg-gradient-to-r from-primary to-secondary text-white rounded-lg hover:opacity-90 transition-opacity">
                         开始考试
                     </button>
                 </div>
@@ -7511,6 +8154,203 @@
                 const offset = circumference - (examModules[index].progress / 100) * circumference;
                 ring.style.strokeDashoffset = offset;
             });
+        }
+
+        // ================== 电子合同相关功能 ==================
+        
+        // 初始化签名板
+        function initSignaturePad() {
+            signaturePadCanvas = document.getElementById('signature-pad');
+            sigCtx = signaturePadCanvas.getContext('2d');
+            sigCtx.strokeStyle = '#000';
+            sigCtx.lineWidth = 2.5;
+            sigCtx.lineCap = 'round';
+            
+            signaturePadCanvas.addEventListener('pointerdown', e => {
+                drawing = true;
+                const rect = signaturePadCanvas.getBoundingClientRect();
+                lastX = e.clientX - rect.left;
+                lastY = e.clientY - rect.top;
+                sigCtx.beginPath();
+                sigCtx.moveTo(lastX, lastY);
+            });
+            
+            signaturePadCanvas.addEventListener('pointermove', e => {
+                if (!drawing) return;
+                const rect = signaturePadCanvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                sigCtx.lineTo(x, y);
+                sigCtx.stroke();
+                lastX = x;
+                lastY = y;
+            });
+            
+            window.addEventListener('pointerup', () => {
+                drawing = false;
+            });
+        }
+        
+        // 清除签名
+        function clearSignature() {
+            sigCtx.clearRect(0, 0, signaturePadCanvas.width, signaturePadCanvas.height);
+        }
+        
+        // 打开合同模态框
+        function openContractModal() {
+            if (!userData.isLoggedIn) {
+                alert('请先登录');
+                return;
+            }
+            
+            // 自动填写乙方信息
+            document.getElementById('contract-modal').style.display = 'flex';
+            
+            // 更新合同中的乙方信息
+            const contractContent = document.querySelector('#contract-modal p.text-sm.text-gray-600.mb-4');
+            if (contractContent) {
+                contractContent.innerHTML = `
+                    甲方：九天乐传媒有限公司<br>
+                    乙方：${userData.nickname || '未设置昵称'} (${userData.realName || '未填写真实姓名'})<br>
+                    手机：${userData.phone || '未填写手机号'}<br>
+                    身份证：${userData.idCard || '未填写身份证'}
+                `;
+            }
+            
+            initSignaturePad();
+        }
+        
+        // 关闭合同模态框
+        function closeContractModal() {
+            document.getElementById('contract-modal').style.display = 'none';
+        }
+        
+        // 保存已签署合同 - 确保签名正确保存
+        function saveSignedContract() {
+            if (!document.getElementById('agree-checkbox').checked) {
+                alert('请先同意合同条款');
+                return;
+            }
+            
+            // 获取签名数据
+            const signatureDataUrl = signaturePadCanvas.toDataURL('image/png');
+            
+            // 检查签名是否为空
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCanvas.width = signaturePadCanvas.width;
+            tempCanvas.height = signaturePadCanvas.height;
+            tempCtx.drawImage(signaturePadCanvas, 0, 0);
+            
+            const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+            const data = imageData.data;
+            let isEmpty = true;
+            
+            for (let i = 0; i < data.length; i += 4) {
+                if (data[i + 3] !== 0) { // 检查alpha通道
+                    isEmpty = false;
+                    break;
+                }
+            }
+            
+            if (isEmpty) {
+                alert('请先签名');
+                return;
+            }
+            
+            const now = new Date();
+            const record = {
+                id: 'ctr_' + now.getTime(),
+                nickname: userData.nickname,
+                realName: userData.realName,
+                phone: userData.phone,
+                idCard: userData.idCard,
+                signedAt: now.toISOString(),
+                signature: signatureDataUrl // 确保签名数据保存
+            };
+            
+            const list = JSON.parse(localStorage.getItem('signedContracts') || '[]');
+            list.unshift(record);
+            localStorage.setItem('signedContracts', JSON.stringify(list));
+            
+            alert('合同已保存（仅保存在本地浏览器）');
+            closeContractModal();
+        }
+
+        
+        // 打开合同列表模态框
+        function openContractModal() {
+            if (!userData.isLoggedIn) {
+                alert('请先登录');
+                return;
+            }
+            
+            // 自动填写乙方信息
+            document.getElementById('contract-modal').style.display = 'flex';
+            
+            // 更新合同中的乙方信息
+            const contractContent = document.querySelector('#contract-modal p.text-sm.text-gray-600.mb-4');
+            if (contractContent) {
+                contractContent.innerHTML = `
+                    甲方：九天乐传媒有限公司<br>
+                    乙方：${userData.nickname || '未设置昵称'} (${userData.realName || '未填写真实姓名'})<br>
+                    手机：${userData.phone || '未填写手机号'}<br>
+                    身份证：${userData.idCard || '未填写身份证'}
+                `;
+            }
+            
+            initSignaturePad();
+        }
+        
+        // 关闭合同列表模态框
+        function closeContractsList() {
+            document.getElementById('contracts-list-modal').style.display = 'none';
+        }
+        
+        // 渲染合同列表
+        function renderContractsList() {
+            const container = document.getElementById('contracts-list');
+            const list = JSON.parse(localStorage.getItem('signedContracts') || '[]');
+            
+            if (!list.length) {
+                container.innerHTML = '<p class="text-gray-500 text-center">暂无已签署合同</p>';
+                return;
+            }
+            
+            // 只显示当前用户的合同
+            const userContracts = list.filter(item => item.nickname === userData.nickname);
+            
+            if (!userContracts.length) {
+                container.innerHTML = '<p class="text-gray-500 text-center">您尚未签署任何合同</p>';
+                return;
+            }
+            
+            container.innerHTML = userContracts.map(item => `
+                <div class="flex items-center justify-between bg-gray-50 p-3 rounded-lg mb-2">
+                    <div>
+                        <div class="font-medium">${item.nickname} (${item.realName || '-'})</div>
+                        <div class="text-sm text-gray-500">签署时间：${new Date(item.signedAt).toLocaleString()}</div>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button onclick='downloadContractImproved("${item.id}")' class="px-3 py-1 bg-blue-100 text-blue-600 rounded text-sm hover:bg-blue-200 transition-colors">
+                            下载
+                        </button>
+                        <button onclick='deleteContract("${item.id}")' class="px-3 py-1 bg-red-100 text-red-600 rounded text-sm hover:bg-red-200 transition-colors">
+                            删除
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // 删除合同
+        function deleteContract(id) {
+            if (!confirm('确定要删除此合同记录吗？')) return;
+            
+            let list = JSON.parse(localStorage.getItem('signedContracts') || '[]');
+            list = list.filter(it => it.id !== id);
+            localStorage.setItem('signedContracts', JSON.stringify(list));
+            renderContractsList();
         }
     </script>
 </head>
@@ -7574,6 +8414,45 @@
     <footer class="mt-12 md:mt-16 text-center text-gray-600 text-sm md:text-base">
         <p>© 2025 优游传媒有限公司 | 九天乐传媒有限公司</p>
     </footer>
+
+    <!-- 合同弹窗 -->
+    <div id="contract-modal" class="fixed inset-0 z-60 flex items-center justify-center hidden bg-black bg-opacity-50">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-3xl p-6 relative mx-4">
+            <button onclick="closeContractModal()" class="absolute right-4 top-4 text-gray-500 hover:text-gray-700"><i class="fas fa-times"></i></button>
+            <h3 class="text-xl font-bold mb-4 gradient-text">主播电子合同（示例）</h3>
+            <p class="text-sm text-gray-600 mb-4">甲方：九天乐传媒有限公司<br>乙方：${userData.nickname || '未登录用户'} (${userData.realName || '未填写'})</p>
+            <div class="text-sm text-gray-700 mb-4 max-h-60 overflow-y-auto">
+                <p><strong>合同内容示例：</strong></p>
+                <p>1. 合作期限：本合同自签署之日起生效，有效期为1年。</p>
+                <p>2. 收益分配：按照平台规则及双方协商确定的分成比例进行分配。</p>
+                <p>3. 权利义务：甲方提供培训、运营支持，乙方需遵守平台规则和公司管理制度。</p>
+                <p>4. 保密条款：双方应对合作期间知悉的商业秘密承担保密义务。</p>
+                <p>5. 违约责任：任何一方违反本合同约定，应承担相应的违约责任。</p>
+                <p>6. 争议解决：本合同履行过程中发生的争议，由双方协商解决；协商不成的，可向有管辖权的人民法院提起诉讼。</p>
+            </div>
+            <div class="mt-4">
+                <div class="mb-2 text-sm text-gray-600">签名：</div>
+                <canvas id="signature-pad" width="600" height="120" class="contract-signature-canvas w-full"></canvas>
+                <button onclick="clearSignature()" class="mt-2 px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 transition-colors">清除签名</button>
+            </div>
+            <div class="mt-4 flex items-center">
+                <input type="checkbox" id="agree-checkbox" class="mr-2">
+                <label for="agree-checkbox" class="text-sm">我已阅读并同意上述合同条款</label>
+            </div>
+            <div class="mt-4 text-right">
+                <button onclick="saveSignedContract()" class="px-4 py-2 bg-gradient-to-r from-primary to-secondary text-white rounded-lg hover:opacity-90 transition-opacity">签署并保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 已签合同列表弹窗 -->
+    <div id="contracts-list-modal" class="fixed inset-0 z-60 flex items-center justify-center hidden bg-black bg-opacity-50">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-4xl p-6 relative mx-4">
+            <button onclick="closeContractsList()" class="absolute right-4 top-4 text-gray-500 hover:text-gray-700"><i class="fas fa-times"></i></button>
+            <h3 class="text-xl font-bold mb-4 gradient-text">已签署合同</h3>
+            <div id="contracts-list" class="space-y-3 max-h-96 overflow-auto"></div>
+        </div>
+    </div>
 
     <!-- SVG 渐变定义 -->
     <svg width="0" height="0">
