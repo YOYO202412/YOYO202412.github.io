@@ -129,6 +129,8 @@
                 border: 2px dashed #ccc;
             }
             
+
+
             .signature-controls {
                 flex-direction: column;
             }
@@ -7567,7 +7569,7 @@
                             查看全部题目解析
     </button>
     <button onclick="openContractModal()" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors mr-4">
-        申请海外直播
+        申请tiktok
     </button>
     <button onclick="location.reload()" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors mr-4">
         返回首页
@@ -8338,6 +8340,7 @@
                 }
             }
         }
+
         
         // 清除签名 - 增加确认提示
         function clearSignature() {
@@ -8606,41 +8609,133 @@
 
     <!-- 合同弹窗 -->
     <div id="contract-modal" class="fixed inset-0 z-60 flex items-center justify-center hidden bg-black bg-opacity-50">
-        <div class="bg-white rounded-xl shadow-xl w-full max-w-3xl p-6 relative mx-4">
-            <button onclick="closeContractModal()" class="absolute right-4 top-4 text-gray-500 hover:text-gray-700"><i class="fas fa-times"></i></button>
-            <h3 class="text-xl font-bold mb-4 gradient-text">主播电子合同（示例）</h3>
-            <p class="text-sm text-gray-600 mb-4">甲方：九天乐传媒有限公司<br>乙方：${userData.nickname || '未登录用户'} (${userData.realName || '未填写'})</p>
-            <div class="text-sm text-gray-700 mb-4 max-h-60 overflow-y-auto">
-                <p><strong>合同内容示例：</strong></p>
-                <p>1. 合作期限：本合同自签署之日起生效，有效期为1年。</p>
-                <p>2. 收益分配：按照平台规则及双方协商确定的分成比例进行分配。</p>
-                <p>3. 权利义务：甲方提供培训、运营支持，乙方需遵守平台规则和公司管理制度。</p>
-                <p>4. 保密条款：双方应对合作期间知悉的商业秘密承担保密义务。</p>
-                <p>5. 违约责任：任何一方违反本合同约定，应承担相应的违约责任。</p>
-                <p>6. 争议解决：本合同履行过程中发生的争议，由双方协商解决；协商不成的，可向有管辖权的人民法院提起诉讼。</p>
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-4xl p-6 relative mx-4 flex flex-col" style="max-height: 90vh;">
+            <button onclick="closeContractModal()" class="absolute right-4 top-4 text-gray-500 hover:text-gray-700 z-10"><i class="fas fa-times"></i></button>
+            <h3 class="text-xl font-bold mb-4 gradient-text">Exclusive Agency Contract for TikTok LIVE Creators</h3>
+            <p class="text-sm text-gray-600 mb-4">Party A: Changning Jiutianle Culture Media Co., Ltd.<br>Party B: ${userData.nickname || 'Not logged in'} (${userData.realName || 'Not filled'})</p>
+            <div class="text-sm text-gray-700 mb-4 flex-1 overflow-y-auto" style="line-height: 1.5; font-family: Arial, sans-serif; padding: 10px; border: 1px solid #eee; border-radius: 5px;">
+                <h4 style="font-weight: bold; margin-bottom: 10px;">Exclusive Agency Contract for TikTok LIVE Creators</h4>
+                
+                <p><strong>Party A (creator networks):</strong> Changning Jiutianle Culture Media Co., Ltd.<br>
+                
+                <p>Party A and Party B, in accordance with relevant laws and regulations such as the Civil Code of the People's Republic of China, and in line with the principles of equality, voluntariness, and fairness, hereby reach the following agreement regarding Party A's provision of TikTok LIVE performance services to Party B for their mutual compliance:</p>
+                
+                <h5 style="font-weight: bold; margin-top: 15px;">1. Basis and Confirmation of Cooperation</h5>
+                <p>Party B confirms that its TikTok account is used for its own LIVE broadcasts and is actually managed and used by Party B. Party B voluntarily applies to and joins the creator networks established by Party A on the TikTok platform (hereinafter referred to as "joining the creator networks") and accepts Party A's exclusive operation and management during the cooperation period. Party B confirms that, prior to signing this Agreement, it has fully understood and is aware of all of Party A's cooperation terms, including but not limited to revenue sharing, operation service content, management systems, etc., and voluntarily accepts them. The two parties confirm that the cooperation under this Agreement does not constitute an employment or labor relationship, but rather an independent commercial cooperation relationship. Party B shall be responsible for and pay its own social insurance, individual income tax, etc.</p>
+                
+                <h5 style="font-weight: bold; margin-top: 15px;">2. Purpose and Scope of Cooperation</h5>
+                <p>Party A shall act as Party B's exclusive agent in the internet performing arts business (including but not limited to activities such as online LIVE, short video content publishing, and online interactive performing arts). The scope of cooperation referred to in this Agreement covers the TikTok platform and all other existing and future internet performing arts platforms. Without the written consent of Party A, Party B shall not engage in any business that competes with or is similar to the content of this Agreement's cooperation on any other platform in any way (including but not limited to using their own name, using another person's name, or opening a secondary account) during the term of this Agreement. Party B shall fully cooperate with the performing arts activities, training, and promotion plans arranged by Party A.</p>
+                
+                <h5 style="font-weight: bold; margin-top: 15px;">3. Cooperation Term and Termination</h5>
+                <p>1. The term of cooperation under this Agreement shall commence on the date of signing of this Contract and shall be valid for 3 years. One month prior to the expiration of the term, if neither party has submitted a written intention to terminate, this Agreement shall automatically be renewed for two years.</p>
+                
+                <h5 style="font-weight: bold; margin-top: 15px;">4. Rights and Obligations of Party A</h5>
+                <p>1. is responsible for the operation, promotion, and traffic support of Party B's TikTok account, and provides necessary training in aspects such as LIVE skills, cross-border e-commerce, foreign languages, and cross-cultural communication.<br>
+                2. Pay the revenue share to Party B on time and in accordance with the agreement.<br>
+                3. has the right to supervise Party B's performing arts activities and put forward rectification suggestions.<br>
+                4. To fulfill its operational management responsibilities, Party A has the right to view and use relevant information and data generated by Party B through the TikTok LIVE service platform, including but not limited to account information, LIVE data, revenue data, violation data, etc.<br>
+                5. Party A has the right to entrust part or all of the rights and obligations under this Agreement to a third party for performance according to business needs, and Party B shall cooperate accordingly.<br>
+                6. Party A has the right to adjust the revenue sharing ratio of LIVE creators based on changes in the platform's revenue sharing policy, changes in the LIVE market, and the effectiveness of Party A's support for Party B. Party A has the right to require Party B to switch to a designated platform to continue LIVE streaming or conduct LIVE activities under the creator networks owned by Party A's subsidiaries or branches, or other Agencies designated by Party A.</p>
+                
+                <h5 style="font-weight: bold; margin-top: 15px;">5. Detailed Rules for Party B's Rights and Obligations</h5>
+                <p><strong>1. Live Streaming Guidelines:</strong><br>
+                a) <strong>LIVE Start Time:</strong> Unless otherwise agreed by both parties, Party B shall go LIVE on the primary cooperation platform TikTok within 10 days after the effective date of this Agreement, using the agreed corresponding account ID.<br>
+                b) <strong>LIVE Content:</strong> Party B undertakes to personally appear in the LIVE on the TikTok platform (no proxy hosting allowed), and audio LIVE creators must use their own real voices (no proxy hosting allowed), and shall leverage their charm and influence to carry out performing arts activities. Party B has the obligation to actively maintain its own and Party A's image during the LIVE. During the LIVE, Party B shall be able to form positive interactions and full communication with TikTok platform users, continuously increase the stickiness and attention of the LIVE, and shall also actively interact and communicate with the audience. There shall be no non-compliance phenomena such as leaving the broadcast unattended or broadcasting without content, and no situations such as pornographic content that violate public order and good customs shall occur.<br>
+                c) <strong>LIVE Duration:</strong> Only the LIVE duration that meets the requirements of Party A's LIVE content and platform can be recognized as valid LIVE duration. Only when the cumulative valid duration before 24:00 on the same day reaches the duration stipulated in the agreement can it be recognized as a valid day. During the cooperation period stipulated in this agreement, Party B shall have <strong>no less than [26] valid LIVE days per month, no less than [6] hours of valid LIVE duration per day, and the cumulative valid LIVE duration per month shall be no less than [156] hours. Any single LIVE session lasting less than [3] hours shall not be counted as valid duration</strong>, and the LIVE time slots shall be coordinated with the operation arrangements.Special Note: If a LIVE session starts before 24:00 on the same day and ends after 0:00 on the next day, it is considered a cross-day LIVE. In this case, the LIVE before 24:00 on the same day, if it meets the requirements of the platform and the agreed valid LIVE duration between the two parties, shall be counted towards the valid LIVE duration of the same day, and the LIVE after 0:00 on the next day, if it meets the requirements of the platform and the agreed valid LIVE duration between the two parties, shall be counted towards the valid LIVE duration of the next day.<br>
+                d) <strong>High-quality short videos:</strong> Must be reviewed and approved by Party A, with <strong>no less than [26] per month</strong>.<br>
+                e) <strong>Number of PK Sessions:</strong> Party B shall have <strong>no fewer than [100] co-host PK sessions per month</strong>.<br>
+                <strong>2. Account Obligations:</strong><br>
+                a) Party B shall be responsible for safeguarding the cooperation account and, without the written permission of Party A, shall not lend, transfer, disclose, sell, donate, lease, or allow a third party to use the account, nor shall it unilaterally cancel the account or withdraw from Party A's creator networks without authorization.<br>
+                b) During the term of cooperation, Party B shall not open other accounts (i.e., "alt accounts") in its own or others' names to conduct LIVE activities.<br>
+                <strong>3. Exclusive and Loyalty Obligations:</strong> During the cooperation period, Party B shall fully cooperate with Party A's arrangements and shall not privately accept any performing arts activities or cooperation invitations provided by any third party. Without Party A's written consent, Party B shall not privately conduct performing arts activities such as LIVE on any third-party online LIVE platform not arranged by Party A; without Party A's written consent, Party B shall not arbitrarily change the LIVE platform, creator networks, or the jointly operated accounts of both parties.<br>
+                <strong>4.</strong> Party B hereby warrants that, prior to signing this Agreement with Party A, Party B has not established any LIVE cooperation relationship with any third-party creator networks through its own real-name authentication or by borrowing another person's LIVE account. During the cooperation period, Party B shall not unilaterally change or abandon the stage name it has been using.<br>
+                <strong>5.</strong> Party B shall be obliged to comply with all LIVE regulations of the TikTok platform as well as relevant laws and regulations. If Party A is penalized or has funds deducted by a third party due to Party B's violation of platform regulations, rules, or relevant laws and regulations, Party A shall have the right to claim compensation from Party B, and Party B shall fully compensate Party A for the amount that has been deducted or penalized within three days from the date of Party A's notice.</p>
+                
+                <h5 style="font-weight: bold; margin-top: 15px;">6. Revenue Distribution and Settlement Mechanism</h5>
+                <p><strong>1. Revenue Scope:</strong> Includes but is not limited to all revenues generated from the cooperation, such as TikTok LIVE sound waves, short video e-commerce commissions, advertising revenues, platform event rewards, etc.<br>
+                <strong>2. Revenue Sharing Ratio:</strong> After TikTok platform deducts the corresponding platform service fee, Party A shall account for [20 %] of the distributable revenue; Party B shall account for [30 %] of the distributable revenue.<br>
+                <strong>3. Settlement and Payment:</strong> Revenue will be settled monthly. Party A shall provide Party B with a detailed revenue statement by the 15th of the following month. After both parties confirm that there are no errors, Party A shall pay Party B's share to its designated account within 20 working days after receiving the settlement payment from the platform.<br>
+                <strong>4.</strong> The two parties confirm that the above-mentioned income is pre-tax income, and Party B shall independently declare and pay individual income tax in accordance with the law.<br>
+                <strong>5. Special Agreement:</strong><br>
+                a) When Party A distributes the share of revenue, if Party B's LIVE creators violate the relevant provisions of the agreement, Party A has the right to suspend or withhold the payment of the fees to be settled. If the breach of contract by Party B occurs before the monthly settlement time point, Party A has the right to suspend or withhold the revenue, signing bonus, guaranteed payment, support fund, etc. of Party B for the previous settlement cycle and the month of the breach of contract that should be settled at the monthly settlement time point.<br>
+                b) If the revenue sharing ratio is changed due to platform policy changes, or Party B switches to a different platform for LIVE under Party A's guidance, the final revenue sharing ratio shall be subject to Party A's notice.</p>
+                
+                <h5 style="font-weight: bold; margin-top: 15px;">VII. Agreements on Various Support and Consideration</h5>
+                <p>1. Party A may choose one or more of the following methods to provide financial support to Party B during the term of the agreement:<br>
+                <strong>Support:</strong> including but not limited to short video support, LIVE equipment support, vote brushing support, promotion support (such as purchasing traffic on TikTok), operation support, LIVE venue support, LIVE skills training, guaranteed income support, etc.<br>
+                2. The support funds provided by Party A to Party B shall be completed in the manner described above within the term of the agreement. If Party B is in breach of the agreement, Party A shall have the right to suspend the support.<br>
+                3. Party B shall complete a total front - desk turnover of RMB [10 ] million yuan each year within the contract period. If it fails to do so, it shall, within 3 days after receiving Party A's written notice, return to Party A in cash [10 ] times all the support fees that Party A has invested during the cooperation period.</p>
+                
+                <h5 style="font-weight: bold; margin-top: 15px;">8. Intellectual Property and Licensing</h5>
+                <p>1. During the cooperation period, the intellectual property rights and related rights and interests of all results (including but not limited to LIVE videos, audio, short videos, etc.) generated under this Agreement shall be owned by Party A. Party A has the right to use, copy, publish, disseminate through information networks, etc., either by itself or by authorizing a third party.<br>
+                2. Party B authorizes Party A that, with respect to third parties that infringe upon Party B's legitimate rights and interests such as the right of portrait and the right of performer within the scope of cooperation under this Agreement, Party A has the right to safeguard rights in its own name or in the name of Party B's agent, and the proceeds obtained from such rights protection shall be enjoyed by Party A.</p>
+                
+                <h5 style="font-weight: bold; margin-top: 15px;">IX. Confidentiality Obligations</h5>
+                <p>1. Both parties shall bear the obligation of confidentiality regarding the content of this Agreement and the business secrets of the other party known during the performance process, and this obligation shall not expire due to the termination of this Agreement.<br>
+                2. If either party breaches the confidentiality obligation, it shall pay [50,000] yuan to the non-breaching party as liquidated damages and compensate the non-breaching party for all losses caused.</p>
+                
+                <h5 style="font-weight: bold; margin-top: 15px;">10. Detailed Description of Liability for Breach of Contract</h5>
+                <p><strong>1. General Breach:</strong><br>
+                Party B's <strong>delayed go LIVE</strong> (failing to go LIVE within 10 days after the effective date of this Agreement), <strong>negative LIVE performance</strong> (being recorded by Party A for negative LIVE performance three times in total within a month), <strong>unstable LIVE duration</strong> (the monthly LIVE duration being less than the amount stipulated in the Agreement), <strong>hiding rankings, unauthorized changes to the LIVE account ID and nickname, the number of high-quality short videos by Party B being less than the amount stipulated in this Agreement, the LIVE content not complying with the Agreement and legal requirements, or violating the platform's management regulations, engaging in private advertising and product endorsement activities during the LIVE session or conducting private live-streaming marketing or short video advertising activities without obtaining Party A's written authorization, failing to return the guaranteed fees actually paid by Party A as stipulated in the contract, failing to meet the transaction volume requirements stipulated in this Agreement and still not returning the signing fee at the multiple stipulated in this Agreement within three days after receiving Party A's written notice, refusing to provide Party A with records of ticket brushing support upon Party A's request, failing to retain daily data from the designated LIVE platform, refusing to cooperate with Party A's requests to change the LIVE platform and transfer, etc.</strong> shall be deemed a <strong>general breach of contract</strong>. Party A shall have the right to require Party B to immediately correct the breach. If Party B still refuses to correct the breach without justifiable reasons within 3 days, in addition to requiring Party B to refund the amount to be refunded, <strong>Party A shall have the right to deduct or suspend payment of</strong> the guaranteed or LIVE revenue share, live-streaming marketing revenue or short video revenue, stop all forms of support, and recover the self-withdrawn revenue, the reissued revenue share and short video revenue of Party B, as well as the actual upfront investment costs of Party A. Meanwhile, the cooperation term of this Agreement shall be extended by double the number of days of LIVE that Party B fails to complete as agreed, and the missing number of short videos shall be supplemented.<br>
+                <strong>2. Fundamental Breach:</strong><br>
+                Party B <strong>violates the provisions of Article 3 of this Agreement regarding Party B's obligations</strong>, <strong>conducts unauthorized LIVE broadcasts, delays going LIVE for more than 20 days, or suspends LIVE broadcasts</strong> (unilaterally ceases LIVE broadcasts on the creator network designated by Party A for a cumulative period exceeding 20 days), <strong>falsifies identity verification materials, infringes upon Party A's reputation, discloses Party A's trade secrets, unilaterally sells or cancels the cooperative LIVE broadcast account, unilaterally withdraws from Party A's creator network or other creator networks designated by Party A, violates platform regulations or relevant laws and regulations, causing Party A to suffer actual losses, unilaterally terminates or cancels this Agreement without Party A's written consent, establishes a LIVE broadcast cooperation relationship with any third-party platform or creator network before or after cooperation with Party A, fails to correct a general breach of contract within 5 days after receiving a written warning from Party A or breaches the contract again after rectification, includes the amount of vote-buying support provided by Party A in the self-withdrawn earnings but refuses to return it to Party A within 3 days after being notified by Party A, defrauds fans of gifts and other property in an inducement or deception form (including but not limited to in the name of love and other acts of concealment and deception), privately accepts fan transfers or red envelopes, or the image in Party B's LIVE broadcast video seriously deviates from the photo or video image provided at the time of contract signing</strong>, etc., shall all be deemed <strong>fundamental breaches of contract</strong>. In addition to requiring Party B to refund the amount to be refunded, Party A may also require Party B to pay liquidated damages based on <strong>the highest amount among the following five options</strong> and refund Party B's self-withdrawn earnings, supplementary share of earnings, short video earnings, and Party A's actual upfront investment costs (including but not limited to all financial support costs, signing fees, guaranteed fees, advance payments, etc.):<br>
+                ① RMB [Ten] Ten Thousand Yuan;<br>
+                ② 10 times the actual amount invested by Party A during the cooperation period + Party A's expected revenue (Party B's average monthly revenue * number of months of non-normal performance);<br>
+                ③ Liquidated damages equivalent to 36 times the average monthly income obtained by Party B through normal performance of this contract during the contract term.<br>
+                ④ If Party B engaged in relevant LIVE business as agreed in this Agreement before cooperating with Party A, Party B shall pay liquidated damages equal to [5] times the highest monthly income within 24 months prior to the cooperation between the two parties.<br>
+                ⑤ Liquidated damages shall be calculated at 【5】 yuan per person based on the peak number of followers of Party B's account during the contract period.<br>
+                When Party B commits a fundamental breach of contract, Party A shall have the right to terminate this contract.<br>
+                <strong>3. Party A's Breach of Contract:</strong> If Party A fails to pay Party B's share in arrears without justifiable reasons for more than [30] days and still fails to pay after Party B's written notice, Party A shall pay Party B liquidated damages at a daily rate of [0.5%] of the overdue amount.<br>
+                <strong>4.</strong> During the performance of this Agreement, if a Party breaches the Agreement, in addition to bearing liability for breach of contract to the non-breaching Party as agreed in this Agreement, the breaching Party shall also bear the liquidated damages, compensation, indemnity, etc. paid by the non-breaching Party to a third party due to the breach, as well as the necessary and reasonable expenses incurred by the non-breaching Party in pursuing liability for breach of contract (including but not limited to attorney's fees, litigation/arbitration fees, notarization fees, preservation fees, preservation guarantee fees, public notice fees, appraisal fees, assessment fees, enforcement fees, travel expenses, accommodation fees, etc.).</p>
+                
+                <h5 style="font-weight: bold; margin-top: 15px;">XI. Competition Restriction Clause</h5>
+                <p>1. Party B confirms that during the cooperation period and the suspension period between Party A and Party B, Party B shall not cooperate with any third party other than those designated by Party A (including but not limited to LIVE platforms, media companies, LIVE companies, MCN agencies, etc.) to engage in any Internet performing arts activities, shall not sign any contracts or documents related to Internet performing arts activities with any entity other than Party A, and shall not directly or indirectly introduce or attempt to introduce Party A's employees, shareowners, and collaborators to other third-party competitive units to carry out similar business related to Party A, <strong>otherwise Party B shall pay liquidated damages of RMB 100,000</strong>.<br>
+                2. Party B confirms that <strong>if this Agreement is suspended, terminated early, or rescinded due to reasons attributable to Party B, within [365] calendar days from the date of early termination or rescission of this Agreement</strong>, Party B shall not cooperate with any third party other than those designated by Party A to engage in any internet performing arts activities, nor shall it sign any contracts or documents related to internet performing arts activities with any entity other than Party A, <strong>otherwise Party B shall pay liquidated damages of RMB 100,000</strong>.<br>
+                3. Party B confirms that <strong>within [365] calendar days from the date of expiration and termination of this Agreement</strong>, it shall not directly or indirectly introduce, or attempt to introduce, Party A's employees, shareowners, and collaborators to other third-party competing entities to engage in similar business related to Party A, <strong>otherwise Party B shall pay liquidated damages of RMB 100,000</strong>.</p>
+                
+                <h5 style="font-weight: bold; margin-top: 15px;">12. Dispute Resolution and Service</h5>
+                <p>1. Any disputes arising out of or in connection with this Agreement shall first be resolved through friendly consultations between the parties; if consultations fail, either party shall have the right to submit the dispute to the <strong>Beijing Arbitration Commission</strong> for arbitration in Beijing in accordance with its then-effective arbitration rules. The arbitration award shall be final and binding on both parties.<br>
+                2. Both parties confirm that the address, email, and contact information recorded in the preamble of this Agreement shall be used as the service address for legal documents. Any email, text message, etc. sent to the above address shall be deemed served.</p>
+                
+                <h5 style="font-weight: bold; margin-top: 15px;">13. Agreement Amendment, Termination, and Cancellation</h5>
+                <p>1. This Agreement may be modified or terminated in writing upon mutual agreement of both parties.<br>
+                2. Upon expiration of the cooperation term, this Agreement shall terminate. If there is an automatic contract renewal, it shall be implemented in accordance with Article 2, Paragraph 2.<br>
+                3. If either party materially breaches the terms of this Agreement and fails to correct the breach after written notice from the non-breaching party, the non-breaching party shall have the right to unilaterally terminate this Agreement and require the breaching party to assume corresponding liability.</p>
+                
+                <h5 style="font-weight: bold; margin-top: 15px;">14. Other Agreements</h5>
+                <p>1. If any provision of this Agreement is determined to be illegal, invalid, or unenforceable, such provision shall be restricted or removed from the Agreement to the minimum extent necessary without affecting the validity of the other provisions of this Agreement.<br>
+                2. The management rules issued by the TikTok platform, as an annex to this Agreement, shall have the same legal effect as this Agreement.<br>
+                3. This Agreement shall come into force as of the date of signature and seal by both parties. This Agreement is made in two counterparts, with each party holding one counterpart, and both counterparts shall have equal legal effect.<br>
+                4. Attachment 1: Definitions and Explanations; Attachment 2: LIVE Behavior Guidelines; Attachment 3: Copy of Party B's ID card.</p>
+                
+                <p style="margin-top: 20px; font-style: italic;">(Party B is requested to carefully read all the terms of this Agreement. Handwriting the following statement shall be deemed as Party B's recognition of all the terms of this Agreement and voluntary signing of this Agreement.)</p>
+                
+                <p style="margin-top: 10px;">[Party B declares that Party A has explained the terms and conditions of the agreement and its appendices, and that Party B has fully understood and approved them, and voluntarily signs this agreement.]</p>             
             </div>
-            <div class="mt-4">
-                <div class="mb-2 text-sm text-gray-600">签名：</div>
+<div class="mt-2 flex-shrink-0">
+                <div class="mb-2 text-sm text-gray-600"> <div class="mt-2 flex items-center">
+                    <input type="checkbox" id="agree-checkbox" class="mr-2">
+                    <label for="agree-checkbox" class="text-sm">I have read </label>-Signature:</div>
                 <canvas id="signature-pad" width="600" height="240" class="contract-signature-canvas w-full"></canvas>
-                <div class="signature-controls">
-                    <button onclick="clearSignature()" class="px-3 py-2 bg-gray-200 rounded hover:bg-gray-300 transition-colors">
-                        <i class="fas fa-eraser mr-1"></i>清除
-                    </button>
-                    <button onclick="undoSignature()" class="px-3 py-2 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 transition-colors">
-                        <i class="fas fa-undo mr-1"></i>撤销
-                    </button>
+                <div class="signature-controls mt-2">
+<div style="display: flex; align-items: center;">
+    <div class="signature-controls">
+        <button onclick="clearSignature()" class="px-3 py-2 bg-gray-200 rounded hover:bg-gray-300 transition-colors">
+            <i class="fas fa-eraser mr-1"></i>Clear
+        </button>
+    </div>
+    <div class="mt-2 text-right" style="margin-left: auto;">
+        <button onclick="saveSignedContract()" class="px-4 py-2 bg-gradient-to-r from-primary to-secondary text-white rounded-lg hover:opacity-90 transition-opacity">Sign and Save</button>
+    </div>     
+</div>
+                   
+                <div class="mt-2 ">
+                    <input type="" id="" class="mr-2">
+                    <label for="agree-checkbox" class="text-sm">I have read and agree to the above contract terms</label>
                 </div>
-            </div>
-            <div class="mt-4 flex items-center">
-                <input type="checkbox" id="agree-checkbox" class="mr-2">
-                <label for="agree-checkbox" class="text-sm">我已阅读并同意上述合同条款</label>
-            </div>
-            <div class="mt-4 text-right">
-                <button onclick="saveSignedContract()" class="px-4 py-2 bg-gradient-to-r from-primary to-secondary text-white rounded-lg hover:opacity-90 transition-opacity">签署并保存</button>
-            </div>
         </div>
     </div>
-
+    
     <!-- 已签合同列表弹窗 -->
     <div id="contracts-list-modal" class="fixed inset-0 z-60 flex items-center justify-center hidden bg-black bg-opacity-50">
         <div class="bg-white rounded-xl shadow-xl w-full max-w-4xl p-6 relative mx-4">
