@@ -92,6 +92,27 @@
             border-radius: 4px;
         }
         
+        /* 新增移动端下载提示样式 */
+        .download-tip {
+            background-color: #f0f9ff;
+            border: 1px solid #3b82f6;
+            border-radius: 8px;
+            padding: 12px;
+            margin: 10px 0;
+            text-align: center;
+            font-size: 14px;
+        }
+        
+        .download-link {
+            display: inline-block;
+            margin-top: 10px;
+            padding: 8px 16px;
+            background: linear-gradient(45deg, #FF3CAC, #784BA0);
+            color: white;
+            border-radius: 6px;
+            text-decoration: none;
+        }
+
         /* 移动端签名优化样式 */
         .contract-signature-canvas {
             touch-action: none;
@@ -331,7 +352,7 @@
             examRecords: [],
             examCalendar: {},
             isAdmin: false,
-            hasAppliedTikTok: false // 新增管理员标识
+            hasAppliedTikTok: false
         };
 
         // 管理员账号信息
@@ -6679,7 +6700,10 @@
             const savedData = localStorage.getItem('userData');
             if (savedData) {
                 userData = JSON.parse(savedData);
+                if (userData.hasAppliedTikTok === undefined) {
+                    userData.hasAppliedTikTok = false;
                 }
+            }
         }
 
         // 保存用户数据
@@ -7437,15 +7461,14 @@
             if (!contract) {
                 alert('合同不存在');
                 return;
-            }
+           }
+            
+            // 显示生成提示
+            showDownloadTip('正在生成PDF文件，请稍候...');
             
             // 创建合同内容的HTML元素
             const contractContent = document.createElement('div');
-            contractContent.style.width = '794px'; // A4宽度
-            contractContent.style.padding = '20px';
-            contractContent.style.fontFamily = 'SimSun, serif';
-            contractContent.style.fontSize = '14px';
-            contractContent.style.lineHeight = '1.5';
+            contractContent.className = 'contract-content';
             
             // 添加签名预览（如果有签名）
             let signatureHTML = '';
@@ -7581,47 +7604,168 @@
             
             document.body.appendChild(contractContent);
             
+            // 等待签名图片加载完成
+            const signatureImg = contractContent.querySelector('img');
+            if (signatureImg) {
+                signatureImg.onload = function() {
+                    generatePDF(contractContent, contract);
+                };
+                signatureImg.onerror = function() {
+                    console.error('签名图片加载失败，继续生成PDF');
+                    generatePDF(contractContent, contract);
+                };
+                
+                // 如果图片已经加载完成，直接生成PDF
+                if (signatureImg.complete) {
+                    generatePDF(contractContent, contract);
+                }
+            } else {
+                // 没有签名图片，直接生成PDF
+                generatePDF(contractContent, contract);
+            }
+        }
+
+        // 生成PDF函数 - 新增：分离PDF生成逻辑
+        function generatePDF(contractContent, contract) {
             // 使用html2canvas将HTML转换为图片
-            html2canvas(contractContent).then(canvas => {
-                const imgData = canvas.toDataURL('image/png');
+            html2canvas(contractContent, {
+                scale: 2,
+                useCORS: true,
+                logging: false,
+                scrollY: -window.scrollY,
+                width: contractContent.scrollWidth,
+                height: contractContent.scrollHeight,
+                windowWidth: contractContent.scrollWidth,
+                windowHeight: contractContent.scrollHeight,
+                allowTaint: true, // 允许跨域图片
+                useCORS: true, // 使用CORS
+                imageTimeout: 15000 // 图片加载超时时间
+            }).then(canvas => {
+                const imgData = canvas.toDataURL('image/jpeg', 0.9);
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF('p', 'mm', 'a4');
                 
                 const imgWidth = 210; // A4宽度mm
-                const pageHeight = 295; // A4高度mm
-                const imgHeight = canvas.height * imgWidth / canvas.width;
+                const pageHeight = 297; // A4高度mm
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                
                 let heightLeft = imgHeight;
                 let position = 0;
                 
                 // 第一页
-                doc.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                doc.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
                 heightLeft -= pageHeight;
                 
-                // 如果内容超过一页，添加剩余页面
-                while (heightLeft >= 0) {
+                // 添加剩余页面
+                while (heightLeft > 0) {
                     position = heightLeft - imgHeight;
                     doc.addPage();
-                    doc.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                    doc.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
                     heightLeft -= pageHeight;
                 }
                 
-                // 保存PDF
-                doc.save(`合同_${contract.realName}_${contract.nickname}.pdf`);
-                
                 // 移除临时元素
                 document.body.removeChild(contractContent);
+                
+                // 检测是否为移动设备
+                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                
+                if (isMobile) {
+                    // 移动端处理
+                    const pdfBlob = doc.output('blob');
+                    const pdfUrl = URL.createObjectURL(pdfBlob);
+                    
+                    // 显示下载提示和链接
+                    showDownloadTip(
+                        'PDF文件已生成！<br>' +
+                        '如果无法自动下载，请点击下方链接：',
+                        pdfUrl,
+                        `合同_${contract.realName}_${contract.nickname}.pdf`
+                    );
+                    
+                    // 尝试自动下载
+                    setTimeout(() => {
+                        try {
+                            const link = document.createElement('a');
+                            link.href = pdfUrl;
+                            link.download = `合同_${contract.realName}_${contract.nickname}.pdf`;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                            
+                            // 清理URL对象
+                            setTimeout(() => URL.revokeObjectURL(pdfUrl), 1000);
+                        } catch (e) {
+                            console.log('自动下载被阻止，显示手动下载链接');
+                        }
+                    }, 500);
+                } else {
+                    // 桌面端直接下载
+                    doc.save(`合同_${contract.realName}_${contract.nickname}.pdf`);
+                    hideDownloadTip();
+                }
+                
             }).catch(error => {
                 console.error('生成合同PDF错误:', error);
+                hideDownloadTip();
                 alert('生成合同PDF时出错，请重试');
-                document.body.removeChild(contractContent);
+                if (document.body.contains(contractContent)) {
+                    document.body.removeChild(contractContent);
+                }
             });
         }
 
-        // 显示用户信息面板
+        // 显示下载提示 - 新增函数
+        function showDownloadTip(message, downloadUrl = null, fileName = '') {
+            // 移除现有的提示
+            hideDownloadTip();
+            
+            const tipDiv = document.createElement('div');
+            tipDiv.id = 'download-tip';
+            tipDiv.className = 'download-tip fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50';
+            tipDiv.style.width = '80%';
+            tipDiv.style.maxWidth = '300px';
+            tipDiv.innerHTML = `
+                <div class="text-center">
+                    <i class="fas fa-spinner fa-spin text-blue-500 text-2xl mb-2"></i>
+                    <p>${message}</p>
+                    ${downloadUrl ? 
+                        `<a href="${downloadUrl}" download="${fileName}" class="download-link">
+                            <i class="fas fa-download mr-1"></i>点击下载PDF
+                        </a>` 
+                        : ''}
+                    <button onclick="hideDownloadTip()" class="mt-2 px-3 py-1 bg-gray-200 rounded text-sm">关闭</button>
+                </div>
+            `;
+            
+            // 添加半透明背景
+            const overlay = document.createElement('div');
+            overlay.id = 'download-overlay';
+            overlay.className = 'fixed inset-0 bg-black bg-opacity-50 z-40';
+            overlay.onclick = hideDownloadTip;
+            
+            document.body.appendChild(overlay);
+            document.body.appendChild(tipDiv);
+        }
+
+        // 隐藏下载提示 - 新增函数
+        function hideDownloadTip() {
+            const tip = document.getElementById('download-tip');
+            const overlay = document.getElementById('download-overlay');
+            
+            if (tip) tip.remove();
+            if (overlay) overlay.remove();
+        }
+
+        // 管理员下载合同 - 已修改：使用正确的函数名
+        function adminDownloadContract(id) {
+            downloadContractImproved(id);
+        }
+
+        // 显示用户信息面板 - 已修改：根据申请状态显示不同按钮
         function showUserPanel() {
             const mainContent = document.querySelector('main');
             
-            // 根据申请状态生成不同的按钮HTML
             const tiktokButton = userData.hasAppliedTikTok 
                 ? `<button class="px-4 py-2 bg-gray-400 text-white rounded-lg cursor-not-allowed" disabled>
                     <i class="fas fa-check mr-2"></i>已申请
@@ -7795,7 +7939,7 @@
                 questions: generateQuestions(moduleId),
                 currentIndex: 0,
                 answers: {},
-                timeLeft: moduleId === 1 ? 1200 : 600, // 综合考试20分钟，其他10分钟
+                timeLeft: moduleId === 1 ? 600 : 1800, // 综合考试10分钟，其他30分钟
                 timer: null
             };
             showExam(moduleId);
@@ -7848,10 +7992,10 @@
                 return result.slice(0, 3);
             }
             
-            // 正常情况：随机排序并选择前3题
+            // 正常情况：随机排序并选择前30题
             return questions
                 .sort(() => Math.random() - 0.5)
-                .slice(0, 3);
+                .slice(0, 30);
         }
 
         // 显示考试界面
@@ -8521,7 +8665,7 @@
             document.getElementById('contract-modal').style.display = 'none';
         }
         
-        // 保存已签署合同 - 确保签名正确保存
+        // 同 - 确保签名正确保存
         function saveSignedContract() {
             if (!document.getElementById('agree-checkbox').checked) {
                 alert('请先同意合同条款');
@@ -8543,7 +8687,7 @@
             let isEmpty = true;
             
             for (let i = 0; i < data.length; i += 4) {
-                if (data[i + 3] !== 0) { // 检查alpha通道
+                if (data[i + 3] !== 0) {
                     isEmpty = false;
                     break;
                 }
@@ -8562,14 +8706,14 @@
                 phone: userData.phone,
                 idCard: userData.idCard,
                 signedAt: now.toISOString(),
-                signature: signatureDataUrl // 确保签名数据保存
+                signature: signatureDataUrl
             };
             
             const list = JSON.parse(localStorage.getItem('signedContracts') || '[]');
             list.unshift(record);
             localStorage.setItem('signedContracts', JSON.stringify(list));
             
-            // 已修改：更新用户申请状态
+            // 更新用户申请状态
             userData.hasAppliedTikTok = true;
             
             // 更新users数据中的申请状态
@@ -8581,12 +8725,13 @@
             
             saveUserData();
             
-            alert('合同签署成功！');
+            alert('签署成功！');
             closeContractModal();
             
-            // 已修改：自动跳转到首页
+            // 自动跳转到首页
             location.reload();
         }
+
 
         
         // 打开合同列表模态框
@@ -8603,10 +8748,10 @@
             const contractContent = document.querySelector('#contract-modal p.text-sm.text-gray-600.mb-4');
             if (contractContent) {
                 contractContent.innerHTML = `
-                    甲方：九天乐传媒有限公司<br>
-                    乙方：${userData.nickname || '未设置昵称'} (${userData.realName || '未填写真实姓名'})<br>
-                    手机：${userData.phone || '未填写手机号'}<br>
-                    身份证：${userData.idCard || '未填写身份证'}
+                    Party A：常宁市九天乐传媒有限公司<br>
+                    Party B：${userData.nickname || '未设置昵称'} (${userData.realName || '未填写真实姓名'})<br>
+                    Mobile Phone (Number)：${userData.phone || '未填写手机号'}<br>
+                    ID Card：${userData.idCard || '未填写身份证'}
                 `;
             }
             
