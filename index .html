@@ -330,7 +330,8 @@
             idCard: '',
             examRecords: [],
             examCalendar: {},
-            isAdmin: false // 新增管理员标识
+            isAdmin: false,
+            hasAppliedTikTok: false // 新增管理员标识
         };
 
         // 管理员账号信息
@@ -6678,7 +6679,7 @@
             const savedData = localStorage.getItem('userData');
             if (savedData) {
                 userData = JSON.parse(savedData);
-            }
+                }
         }
 
         // 保存用户数据
@@ -6910,7 +6911,8 @@
                 examRecords: [],
                 examCalendar: {},
                 banned: false,
-                createTime: new Date().toISOString()
+                createTime: new Date().toISOString(),
+                hasAppliedTikTok: false // 新增：初始化申请状态
             };
             
             localStorage.setItem('users', JSON.stringify(users));
@@ -6925,6 +6927,7 @@
             userData.examRecords = [];
             userData.examCalendar = {};
             userData.isAdmin = false;
+            userData.hasAppliedTikTok = false; // 新增：初始化申请状态
             
             saveUserData();
             renderHomePage();
@@ -7257,8 +7260,8 @@
                 examRecords: [],
                 examCalendar: {},
                 banned: false,
-                createTime: new Date().toISOString()
-            };
+                createTime: new Date().toISOString(),
+                hasAppliedTikTok: false             };
             
             localStorage.setItem('users', JSON.stringify(users));
             closeModal();
@@ -7525,6 +7528,16 @@
         // 显示用户信息面板
         function showUserPanel() {
             const mainContent = document.querySelector('main');
+            
+            // 根据申请状态生成不同的按钮HTML
+            const tiktokButton = userData.hasAppliedTikTok 
+                ? `<button class="px-4 py-2 bg-gray-400 text-white rounded-lg cursor-not-allowed" disabled>
+                    <i class="fas fa-check mr-2"></i>已申请
+                   </button>`
+                : `<button onclick="openContractModal()" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors mr-4">
+                    申请tiktok
+                   </button>`;
+            
             mainContent.innerHTML = `
                 <div class="max-w-4xl mx-auto">
                     <div class="user-card p-6 mb-6">
@@ -7535,6 +7548,7 @@
                             <div>
                                 <h2 class="text-xl font-bold">${userData.nickname}</h2>
                                 <p class="opacity-80">${userData.realName} | ${userData.phone}</p>
+                                ${userData.hasAppliedTikTok ? '<p class="text-sm mt-1 bg-white text-green-600 px-2 py-1 rounded">✓ 已申请TikTok</p>' : ''}
                             </div>
                         </div>
                     </div>
@@ -7567,12 +7581,10 @@
                     <div class="mt-6 text-center">
                         <button onclick="showAllQuestions()" class="px-4 py-2 bg-gradient-to-r from-primary to-secondary text-white rounded-lg hover:opacity-90 transition-opacity mr-4">
                             查看全部题目解析
-    </button>
-    <button onclick="openContractModal()" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors mr-4">
-        申请tiktok
-    </button>
-    <button onclick="location.reload()" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors mr-4">
-        返回首页
+                        </button>
+                        ${tiktokButton}
+                        <button onclick="location.reload()" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors mr-4">
+                            返回首页
                         </button>
                         <button onclick="logout()" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">
                             <i class="fas fa-sign-out-alt mr-2"></i>退出登录
@@ -8465,8 +8477,23 @@
             list.unshift(record);
             localStorage.setItem('signedContracts', JSON.stringify(list));
             
-            alert('合同已保存（仅保存在本地浏览器）');
+            // 已修改：更新用户申请状态
+            userData.hasAppliedTikTok = true;
+            
+            // 更新users数据中的申请状态
+            const users = JSON.parse(localStorage.getItem('users') || '{}');
+            if (users[userData.username]) {
+                users[userData.username].hasAppliedTikTok = true;
+                localStorage.setItem('users', JSON.stringify(users));
+            }
+            
+            saveUserData();
+            
+            alert('合同签署成功！');
             closeContractModal();
+            
+            // 已修改：自动跳转到首页
+            location.reload();
         }
 
         
