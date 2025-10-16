@@ -1,17 +1,1 @@
-{
-  "name": "anchor-training-system",
-  "version": "1.0.0",
-  "description": "主播培训系统",
-  "main": "server.js",
-  "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
-  },
-  "dependencies": {
-    "express": "^4.18.2",
-    "cors": "^2.8.5"
-  },
-  "keywords": ["training", "anchor", "exam"],
-  "author": "九天乐传媒",
-  "license": "MIT"
-}
+
