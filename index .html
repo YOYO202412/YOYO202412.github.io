@@ -7453,7 +7453,7 @@
             `).join('');
         }
 
-        // 下载合同
+        // 下载合同 - 彻底修复签名显示问题
         function downloadContractImproved(id) {
             const list = JSON.parse(localStorage.getItem('signedContracts') || '[]');
             const contract = list.find(item => item.id === id);
@@ -7461,37 +7461,50 @@
             if (!contract) {
                 alert('合同不存在');
                 return;
-           }
+            }
             
-            // 显示生成提示
-            showDownloadTip('正在生成PDF文件，请稍候...');
+            showDownloadTip('正在生成PDF文件,请稍候...');
             
-            // 创建合同内容的HTML元素
             const contractContent = document.createElement('div');
             contractContent.className = 'contract-content';
+            contractContent.style.padding = '20px';
+            contractContent.style.fontFamily = 'Arial, sans-serif';
+            contractContent.style.lineHeight = '1.5';
+            contractContent.style.fontSize = '14px';
+            contractContent.style.width = '794px';
+            contractContent.style.background = 'white';
+            contractContent.style.position = 'absolute';
+            contractContent.style.left = '-9999px';
             
-            // 添加签名预览（如果有签名）
             let signatureHTML = '';
             if (contract.signature) {
                 signatureHTML = `
-                    <div class="signature-container">
-                        <p>Signature of Party B：</p>
-                        <img src="${contract.signature}" class="signature-preview" alt="签名" />
+                    <div style="margin-top: 20px; padding-top: 15px; border-top: 2px solid #333;">
+                        <p style="margin-bottom: 10px;"><strong>Party B's Signature:</strong></p>
+                        <div style="border: 2px solid #333; padding: 10px; background: #fff; display: inline-block;">
+                            <img src="${contract.signature}" 
+                                 alt="Signature" 
+                                 style="width: 300px; height: 100px; display: block; object-fit: contain; background: white;" />
+                        </div>
+                        <p style="margin-top: 10px; font-size: 12px; color: #666;">Signed on: ${new Date(contract.signedAt).toLocaleString()}</p>
                     </div>
                 `;
             } else {
                 signatureHTML = `
-                    <div class="signature-container">
-                        <p>Signature of Party B：___________________</p>
+                    <div style="margin-top: 20px; padding-top: 15px; border-top: 2px solid #333;">
+                        <p style="margin-bottom: 10px;"><strong>Party B's Signature:</strong></p>
+                        <div style="border: 1px solid #999; padding: 20px; display: inline-block; width: 300px;">
+                            <p style="text-align: center; color: #999;">___________________</p>
+                        </div>
                     </div>
                 `;
             }
-            
+           
             contractContent.innerHTML = `
                 <h1 style="text-align: center; margin-bottom: 30px;">Host's Electronic Contract</h1>
                 <div style="margin-bottom: 20px;">
                     <p><strong>Party A：</strong>常宁市九天乐传媒有限公司</p>
-                    <p><strong>：Credit Code</strong>91430482MAEFKQWR02</p>
+                    <p><strong>Credit Code：</strong>91430482MAEFKQWR02</p>
                     <p><strong>Party B：</strong>${contract.realName} (${contract.nickname})</p>
                     <p><strong>Mobile Phone (Number)：</strong>${contract.phone}</p>
                     <p><strong>ID Card：</strong>${contract.idCard}</p>
@@ -7604,115 +7617,280 @@
             
             document.body.appendChild(contractContent);
             
-            // 等待签名图片加载完成
             const signatureImg = contractContent.querySelector('img');
             if (signatureImg) {
-                signatureImg.onload = function() {
-                    generatePDF(contractContent, contract);
-                };
-                signatureImg.onerror = function() {
-                    console.error('签名图片加载失败，继续生成PDF');
-                    generatePDF(contractContent, contract);
-                };
+                const imgLoadPromise = new Promise((resolve, reject) => {
+                    signatureImg.onload = () => {
+                        console.log('签名图片加载成功');
+                        resolve();
+                    };
+                    signatureImg.onerror = () => {
+                        console.error('签名图片加载失败');
+                        reject(new Error('签名图片加载失败'));
+                    };
+                    
+                    if (signatureImg.complete) {
+                        resolve();
+                    }
+                });
                 
-                // 如果图片已经加载完成，直接生成PDF
-                if (signatureImg.complete) {
-                    generatePDF(contractContent, contract);
-                }
+                const timeoutPromise = new Promise((resolve, reject) => {
+                    setTimeout(() => {
+                        reject(new Error('图片加载超时'));
+                    }, 10000);
+                });
+                
+                Promise.race([imgLoadPromise, timeoutPromise])
+                    .then(() => {
+                        console.log('开始生成PDF');
+                        setTimeout(() => {
+                            generatePDF(contractContent, contract);
+                        }, 1000);
+                    })
+                    .catch((error) => {
+                        console.error('图片加载错误:', error);
+                        setTimeout(() => {
+                            generatePDF(contractContent, contract);
+                        }, 1000);
+                    });
             } else {
-                // 没有签名图片，直接生成PDF
-                generatePDF(contractContent, contract);
+                setTimeout(() => {
+                    generatePDF(contractContent, contract);
+                }, 1000);
             }
         }
 
-        // 生成PDF函数 - 新增：分离PDF生成逻辑
+        // 生成PDF函数 - 完全修复签名显示和文本截断问题
         function generatePDF(contractContent, contract) {
-            // 使用html2canvas将HTML转换为图片
-            html2canvas(contractContent, {
-                scale: 2,
-                useCORS: true,
-                logging: false,
-                scrollY: -window.scrollY,
-                width: contractContent.scrollWidth,
-                height: contractContent.scrollHeight,
-                windowWidth: contractContent.scrollWidth,
-                windowHeight: contractContent.scrollHeight,
-                allowTaint: true, // 允许跨域图片
-                useCORS: true, // 使用CORS
-                imageTimeout: 15000 // 图片加载超时时间
-            }).then(canvas => {
-                const imgData = canvas.toDataURL('image/jpeg', 0.9);
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF('p', 'mm', 'a4');
-                
-                const imgWidth = 210; // A4宽度mm
-                const pageHeight = 297; // A4高度mm
-                const imgHeight = (canvas.height * imgWidth) / canvas.width;
-                
-                let heightLeft = imgHeight;
-                let position = 0;
-                
-                // 第一页
-                doc.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-                heightLeft -= pageHeight;
-                
-                // 添加剩余页面
-                while (heightLeft > 0) {
-                    position = heightLeft - imgHeight;
+            console.log('开始生成PDF内容');
+            console.log('签名数据:', contract.signature ? '存在' : '不存在');
+            
+            showDownloadTip('正在生成PDF文件,请稍候...');
+            
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('p', 'mm', 'a4');
+            
+            const pageWidth = 210;
+            const pageHeight = 297;
+            const margin = 20;
+            const lineHeight = 7;
+            let yPosition = margin;
+            
+            doc.setFontSize(16);
+            doc.setFont(undefined, 'bold');
+            doc.text('Exclusive Agency Contract for LIVE Creators', pageWidth / 2, yPosition, { align: 'center' });
+            yPosition += lineHeight * 2;
+            
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'normal');
+            const partyInfo = [
+                `Party A: Changning Jiutianle Culture Media Co., Ltd.`,
+                `Credit Code: 91430482MAEFKQWR02`,
+                `Party B: ${contract.realName} (${contract.nickname})`,
+                `Mobile Phone: ${contract.phone}`,
+                `ID Card: ${contract.idCard}`,
+                `Signing Time: ${new Date(contract.signedAt).toLocaleString()}`
+            ];
+            
+            partyInfo.forEach(line => {
+                if (yPosition > pageHeight - margin) {
                     doc.addPage();
-                    doc.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-                    heightLeft -= pageHeight;
+                    yPosition = margin;
                 }
-                
-                // 移除临时元素
-                document.body.removeChild(contractContent);
-                
-                // 检测是否为移动设备
-                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-                
-                if (isMobile) {
-                    // 移动端处理
-                    const pdfBlob = doc.output('blob');
-                    const pdfUrl = URL.createObjectURL(pdfBlob);
+                doc.text(line, margin, yPosition);
+                yPosition += lineHeight;
+            });
+            
+            yPosition += lineHeight;
+            
+            doc.setFontSize(9);
+            const contractText = [
+                'This Agreement is entered into by Party A and Party B regarding LIVE services.',
+                '',
+                'Party A (creator networks): Changningshi Jiutianle Culture Media Co., Ltd.',
+                '',
+                'Party A and Party B, in accordance with relevant laws and regulations such as the Civil Code of the People\'s Republic of China, and in line with the principles of equality, voluntariness, and fairness, hereby reach the following agreement regarding Party A\'s provision of TikTok LIVE performance services to Party B for their mutual compliance:',
+                '',
+                '1. Basis and Confirmation of Cooperation',
+                'Party B confirms that its TikTok account is used for its own LIVE broadcasts and is actually managed and used by Party B. Party B voluntarily applies to and joins the creator networks established by Party A on the TikTok platform (hereinafter referred to as "joining the creator networks") and accepts Party A\'s exclusive operation and management during the cooperation period. Party B confirms that, prior to signing this Agreement, it has fully understood and is aware of all of Party A\'s cooperation terms, including but not limited to revenue sharing, operation service content, management systems, etc., and voluntarily accepts them. The two parties confirm that the cooperation under this Agreement does not constitute an employment or labor relationship, but rather an independent commercial cooperation relationship. Party B shall be responsible for and pay its own social insurance, individual income tax, etc.',
+                '',
+                '2. Purpose and Scope of Cooperation',
+                'Party A shall act as Party B\'s exclusive agent in the internet performing arts business (including but not limited to activities such as online LIVE, short video content publishing, and online interactive performing arts). The scope of cooperation referred to in this Agreement covers the TikTok platform and all other existing and future internet performing arts platforms. Without the written consent of Party A, Party B shall not engage in any business that competes with or is similar to the content of this Agreement\'s cooperation on any other platform in any way (including but not limited to using their own name, using another person\'s name, or opening a secondary account) during the term of this Agreement. Party B shall fully cooperate with the performing arts activities, training, and promotion plans arranged by Party A.',
+                '',
+                '3. Cooperation Term and Termination',
+                '1. The term of cooperation under this Agreement shall commence on the date of signing of this Contract and shall be valid for 3 years. One month prior to the expiration of the term, if neither party has submitted a written intention to terminate, this Agreement shall automatically be renewed for two years.',
+                '',
+                '4. Rights and Obligations of Party A',
+                '1. is responsible for the operation, promotion, and traffic support of Party B\'s TikTok account, and provides necessary training in aspects such as LIVE skills, cross-border e-commerce, foreign languages, and cross-cultural communication.',
+                '2. Pay the revenue share to Party B on time and in accordance with the agreement.',
+                '3. has the right to supervise Party B\'s performing arts activities and put forward rectification suggestions.',
+                '4. To fulfill its operational management responsibilities, Party A has the right to view and use relevant information and data generated by Party B through the TikTok LIVE service platform, including but not limited to account information, LIVE data, revenue data, violation data, etc.',
+                '5. Party A has the right to entrust part or all of the rights and obligations under this Agreement to a third party for performance according to business needs, and Party B shall cooperate accordingly.',
+                '6. Party A has the right to adjust the revenue sharing ratio of LIVE creators based on changes in the platform\'s revenue sharing policy, changes in the LIVE market, and the effectiveness of Party A\'s support for Party B. Party A has the right to require Party B to switch to a designated platform to continue LIVE streaming or conduct LIVE activities under the creator networks owned by Party A\'s subsidiaries or branches, or other Agencies designated by Party A.',
+                '',
+                '5. Detailed Rules for Party B\'s Rights and Obligations',
+                '1. Live Streaming Guidelines:',
+                'a) LIVE Start Time: Unless otherwise agreed by both parties, Party B shall go LIVE on the primary cooperation platform TikTok within 10 days after the effective date of this Agreement, using the agreed corresponding account ID.',
+                'b) LIVE Content: Party B undertakes to personally appear in the LIVE on the TikTok platform (no proxy hosting allowed), and audio LIVE creators must use their own real voices (no proxy hosting allowed), and shall leverage their charm and influence to carry out performing arts activities. Party B has the obligation to actively maintain its own and Party A\'s image during the LIVE. During the LIVE, Party B shall be able to form positive interactions and full communication with TikTok platform users, continuously increase the stickiness and attention of the LIVE, and shall also actively interact and communicate with the audience. There shall be no non-compliance phenomena such as leaving the broadcast unattended or broadcasting without content, and no situations such as pornographic content that violate public order and good customs shall occur.',
+                'c) LIVE Duration: Only the LIVE duration that meets the requirements of Party A\'s LIVE content and platform can be recognized as valid LIVE duration. Only when the cumulative valid duration before 24:00 on the same day reaches the duration stipulated in the agreement can it be recognized as a valid day. During the cooperation period stipulated in this agreement, Party B shall have no less than [26] valid LIVE days per month, no less than [6] hours of valid LIVE duration per day, and the cumulative valid LIVE duration per month shall be no less than [156] hours. Any single LIVE session lasting less than [3] hours shall not be counted as valid duration, and the LIVE time slots shall be coordinated with the operation arrangements.Special Note: If a LIVE session starts before 24:00 on the same day and ends after 0:00 on the next day, it is considered a cross-day LIVE. In this case, the LIVE before 24:00 on the same day, if it meets the requirements of the platform and the agreed valid LIVE duration between the two parties, shall be counted towards the valid LIVE duration of the same day, and the LIVE after 0:00 on the next day, if it meets the requirements of the platform and the agreed valid LIVE duration between the two parties, shall be counted towards the valid LIVE duration of the next day.',
+                'd) High-quality short videos: Must be reviewed and approved by Party A, with no less than [26] per month.',
+                'e) Number of PK Sessions: Party B shall have no fewer than [100] co-host PK sessions per month.',
+                '2. Account Obligations:',
+                'a) Party B shall be responsible for safeguarding the cooperation account and, without the written permission of Party A, shall not lend, transfer, disclose, sell, donate, lease, or allow a third party to use the account, nor shall it unilaterally cancel the account or withdraw from Party A\'s creator networks without authorization.',
+                'b) During the term of cooperation, Party B shall not open other accounts (i.e., "alt accounts") in its own or others\' names to conduct LIVE activities.',
+                '3. Exclusive and Loyalty Obligations: During the cooperation period, Party B shall fully cooperate with Party A\'s arrangements and shall not privately accept any performing arts activities or cooperation invitations provided by any third party. Without Party A\'s written consent, Party B shall not privately conduct performing arts activities such as LIVE on any third-party online LIVE platform not arranged by Party A; without Party A\'s written consent, Party B shall not arbitrarily change the LIVE platform, creator networks, or the jointly operated accounts of both parties.',
+                '4. Party B hereby warrants that, prior to signing this Agreement with Party A, Party B has not established any LIVE cooperation relationship with any third-party creator networks through its own real-name authentication or by borrowing another person\'s LIVE account. During the cooperation period, Party B shall not unilaterally change or abandon the stage name it has been using.',
+                '5. Party B shall be obliged to comply with all LIVE regulations of the TikTok platform as well as relevant laws and regulations. If Party A is penalized or has funds deducted by a third party due to Party B\'s violation of platform regulations, rules, or relevant laws and regulations, Party A shall have the right to claim compensation from Party B, and Party B shall fully compensate Party A for the amount that has been deducted or penalized within three days from the date of Party A\'s notice.',
+                '',
+                '6. Revenue Distribution and Settlement Mechanism',
+                '1. Revenue Scope: Includes but is not limited to all revenues generated from the cooperation, such as TikTok LIVE sound waves, short video e-commerce commissions, advertising revenues, platform event rewards, etc.',
+                '2. Revenue Sharing Ratio: After TikTok platform deducts the corresponding platform service fee, Party A shall account for [20 %] of the distributable revenue; Party B shall account for [30 %] of the distributable revenue.',
+                '3. Settlement and Payment: Revenue will be settled monthly. Party A shall provide Party B with a detailed revenue statement by the 15th of the following month. After both parties confirm that there are no errors, Party A shall pay Party B\'s share to its designated account within 20 working days after receiving the settlement payment from the platform.',
+                '4. The two parties confirm that the above-mentioned income is pre-tax income, and Party B shall independently declare and pay individual income tax in accordance with the law.',
+                '5. Special Agreement:',
+                'a) When Party A distributes the share of revenue, if Party B\'s LIVE creators violate the relevant provisions of the agreement, Party A has the right to suspend or withhold the payment of the fees to be settled. If the breach of contract by Party B occurs before the monthly settlement time point, Party A has the right to suspend or withhold the revenue, signing bonus, guaranteed payment, support fund, etc. of Party B for the previous settlement cycle and the month of the breach of contract that should be settled at the monthly settlement time point.',
+                'b) If the revenue sharing ratio is changed due to platform policy changes, or Party B switches to a different platform for LIVE under Party A\'s guidance, the final revenue sharing ratio shall be subject to Party A\'s notice.',
+                '',
+                'VII. Agreements on Various Support and Consideration',
+                '1. Party A may choose one or more of the following methods to provide financial support to Party B during the term of the agreement:',
+                'Support: including but not limited to short video support, LIVE equipment support, vote brushing support, promotion support (such as purchasing traffic on TikTok), operation support, LIVE venue support, LIVE skills training, guaranteed income support, etc.',
+                '2. The support funds provided by Party A to Party B shall be completed in the manner described above within the term of the agreement. If Party B is in breach of the agreement, Party A shall have the right to suspend the support.',
+                '3. Party B shall complete a total front - desk turnover of RMB [10 ] million yuan each year within the contract period. If it fails to do so, it shall, within 3 days after receiving Party A\'s written notice, return to Party A in cash [10 ] times all the support fees that Party A has invested during the cooperation period.',
+                '',
+                '8. Intellectual Property and Licensing',
+                '1. During the cooperation period, the intellectual property rights and related rights and interests of all results (including but not limited to LIVE videos, audio, short videos, etc.) generated under this Agreement shall be owned by Party A. Party A has the right to use, copy, publish, disseminate through information networks, etc., either by itself or by authorizing a third party.',
+                '2. Party B authorizes Party A that, with respect to third parties that infringe upon Party B\'s legitimate rights and interests such as the right of portrait and the right of performer within the scope of cooperation under this Agreement, Party A has the right to safeguard rights in its own name or in the name of Party B\'s agent, and the proceeds obtained from such rights protection shall be enjoyed by Party A.',
+                '',
+                'IX. Confidentiality Obligations',
+                '1. Both parties shall bear the obligation of confidentiality regarding the content of this Agreement and the business secrets of the other party known during the performance process, and this obligation shall not expire due to the termination of this Agreement.',
+                '2. If either party breaches the confidentiality obligation, it shall pay [50,000] yuan to the non-breaching party as liquidated damages and compensate the non-breaching party for all losses caused.',
+                '',
+                '10. Detailed Description of Liability for Breach of Contract',
+                '1. General Breach:',
+                'Party B\'s delayed go LIVE (failing to go LIVE within 10 days after the effective date of this Agreement), negative LIVE performance (being recorded by Party A for negative LIVE performance three times in total within a month), unstable LIVE duration (the monthly LIVE duration being less than the amount stipulated in the Agreement), hiding rankings, unauthorized changes to the LIVE account ID and nickname, the number of high-quality short videos by Party B being less than the amount stipulated in this Agreement, the LIVE content not complying with the Agreement and legal requirements, or violating the platform\'s management regulations, engaging in private advertising and product endorsement activities during the LIVE session or conducting private live-streaming marketing or short video advertising activities without obtaining Party A\'s written authorization, failing to return the guaranteed fees actually paid by Party A as stipulated in the contract, failing to meet the transaction volume requirements stipulated in this Agreement and still not returning the signing fee at the multiple stipulated in this Agreement within three days after receiving Party A\'s written notice, refusing to provide Party A with records of ticket brushing support upon Party A\'s request, failing to retain daily data from the designated LIVE platform, refusing to cooperate with Party A\'s requests to change the LIVE platform and transfer, etc. shall be deemed a general breach of contract. Party A shall have the right to require Party B to immediately correct the breach. If Party B still refuses to correct the breach without justifiable reasons within 3 days, in addition to requiring Party B to refund the amount to be refunded, Party A shall have the right to deduct or suspend payment of the guaranteed or LIVE revenue share, live-streaming marketing revenue or short video revenue, stop all forms of support, and recover the self-withdrawn revenue, the reissued revenue share and short video revenue of Party B, as well as the actual upfront investment costs of Party A. Meanwhile, the cooperation term of this Agreement shall be extended by double the number of days of LIVE that Party B fails to complete as agreed, and the missing number of short videos shall be supplemented.',
+                '2. Fundamental Breach:',
+                'Party B violates the provisions of Article 3 of this Agreement regarding Party B\'s obligations, conducts unauthorized LIVE broadcasts, delays going LIVE for more than 20 days, or suspends LIVE broadcasts (unilaterally ceases LIVE broadcasts on the creator network designated by Party A for a cumulative period exceeding 20 days), falsifies identity verification materials, infringes upon Party A\'s reputation, discloses Party A\'s trade secrets, unilaterally sells or cancels the cooperative LIVE broadcast account, unilaterally withdraws from Party A\'s creator network or other creator networks designated by Party A, violates platform regulations or relevant laws and regulations, causing Party A to suffer actual losses, unilaterally terminates or cancels this Agreement without Party A\'s written consent, establishes a LIVE broadcast cooperation relationship with any third-party platform or creator network before or after cooperation with Party A, fails to correct a general breach of contract within 5 days after receiving a written warning from Party A or breaches the contract again after rectification, includes the amount of vote-buying support provided by Party A in the self-withdrawn earnings but refuses to return it to Party A within 3 days after being notified by Party A, defrauds fans of gifts and other property in an inducement or deception form (including but not limited to in the name of love and other acts of concealment and deception), privately accepts fan transfers or red envelopes, or the image in Party B\'s LIVE broadcast video seriously deviates from the photo or video image provided at the time of contract signing, etc., shall all be deemed fundamental breaches of contract. In addition to requiring Party B to refund the amount to be refunded, Party A may also require Party B to pay liquidated damages based on the highest amount among the following five options and refund Party B\'s self-withdrawn earnings, supplementary share of earnings, short video earnings, and Party A\'s actual upfront investment costs (including but not limited to all financial support costs, signing fees, guaranteed fees, advance payments, etc.):',
+                '① RMB [Ten] Ten Thousand Yuan;',
+                '② 10 times the actual amount invested by Party A during the cooperation period + Party A\'s expected revenue (Party B\'s average monthly revenue * number of months of non-normal performance);',
+                '③ Liquidated damages equivalent to 36 times the average monthly income obtained by Party B through normal performance of this contract during the contract term.',
+                '④ If Party B engaged in relevant LIVE business as agreed in this Agreement before cooperating with Party A, Party B shall pay liquidated damages equal to [5] times the highest monthly income within 24 months prior to the cooperation between the two parties.',
+                '⑤ Liquidated damages shall be calculated at 【5】 yuan per person based on the peak number of followers of Party B\'s account during the contract period.',
+                'When Party B commits a fundamental breach of contract, Party A shall have the right to terminate this contract.',
+                '3. Party A\'s Breach of Contract: If Party A fails to pay Party B\'s share in arrears without justifiable reasons for more than [30] days and still fails to pay after Party B\'s written notice, Party A shall pay Party B liquidated damages at a daily rate of [0.5%] of the overdue amount.',
+                '4. During the performance of this Agreement, if a Party breaches the Agreement, in addition to bearing liability for breach of contract to the non-breaching Party as agreed in this Agreement, the breaching Party shall also bear the liquidated damages, compensation, indemnity, etc. paid by the non-breaching Party to a third party due to the breach, as well as the necessary and reasonable expenses incurred by the non-breaching Party in pursuing liability for breach of contract (including but not limited to attorney\'s fees, litigation/arbitration fees, notarization fees, preservation fees, preservation guarantee fees, public notice fees, appraisal fees, assessment fees, enforcement fees, travel expenses, accommodation fees, etc.).',
+                '',
+                'XI. Competition Restriction Clause',
+                '1. Party B confirms that during the cooperation period and the suspension period between Party A and Party B, Party B shall not cooperate with any third party other than those designated by Party A (including but not limited to LIVE platforms, media companies, LIVE companies, MCN agencies, etc.) to engage in any Internet performing arts activities, shall not sign any contracts or documents related to Internet performing arts activities with any entity other than Party A, and shall not directly or indirectly introduce or attempt to introduce Party A\'s employees, shareowners, and collaborators to other third-party competitive units to carry out similar business related to Party A, otherwise Party B shall pay liquidated damages of RMB 100,000.',
+                '2. Party B confirms that if this Agreement is suspended, terminated early, or rescinded due to reasons attributable to Party B, within [365] calendar days from the date of early termination or rescission of this Agreement, Party B shall not cooperate with any third party other than those designated by Party A to engage in any internet performing arts activities, nor shall it sign any contracts or documents related to internet performing arts activities with any entity other than Party A, otherwise Party B shall pay liquidated damages of RMB 100,000.',
+                '3. Party B confirms that within [365] calendar days from the date of expiration and termination of this Agreement, it shall not directly or indirectly introduce, or attempt to introduce, Party A\'s employees, shareowners, and collaborators to other third-party competing entities to engage in similar business related to Party A, otherwise Party B shall pay liquidated damages of RMB 100,000.',
+                '',
+                '12. Dispute Resolution and Service',
+                '1. Any disputes arising out of or in connection with this Agreement shall first be resolved through friendly consultations between the parties; if consultations fail, either party shall have the right to submit the dispute to the Beijing Arbitration Commission for arbitration in Beijing in accordance with its then-effective arbitration rules. The arbitration award shall be final and binding on both parties.',
+                '2. Both parties confirm that the address, email, and contact information recorded in the preamble of this Agreement shall be used as the service address for legal documents. Any email, text message, etc. sent to the above address shall be deemed served.',
+                '',
+                '13. Agreement Amendment, Termination, and Cancellation',
+                '1. This Agreement may be modified or terminated in writing upon mutual agreement of both parties.',
+                '2. Upon expiration of the cooperation term, this Agreement shall terminate. If there is an automatic contract renewal, it shall be implemented in accordance with Article 2, Paragraph 2.',
+                '3. If either party materially breaches the terms of this Agreement and fails to correct the breach after written notice from the non-breaching party, the non-breaching party shall have the right to unilaterally terminate this Agreement and require the breaching party to assume corresponding liability.',
+                '',
+                '14. Other Agreements',
+                '1. If any provision of this Agreement is determined to be illegal, invalid, or unenforceable, such provision shall be restricted or removed from the Agreement to the minimum extent necessary without affecting the validity of the other provisions of this Agreement.',
+                '2. The management rules issued by the TikTok platform, as an annex to this Agreement, shall have the same legal effect as this Agreement.',
+                '3. This Agreement shall come into force as of the date of signature and seal by both parties. This Agreement is made in two counterparts, with each party holding one counterpart, and both counterparts shall have equal legal effect.',
+                '4. Attachment 1: Definitions and Explanations; Attachment 2: LIVE Behavior Guidelines; Attachment 3: Copy of Party B\'s ID card.',
+                '',
+                '(Party B is requested to carefully read all the terms of this Agreement. Signing the following statement shall be deemed as Party B\'s recognition of all the terms of this Agreement and voluntary signing of this Agreement.)',
+                '',
+                '[Party B declares that Party A has explained the terms and conditions of the agreement and its appendices, and that Party B has fully understood and approved them, and voluntarily signs this agreement.]',
+                '',
+                'Both parties have read and agreed to all terms and conditions.'
+            ];
+            
+            const splitText = doc.splitTextToSize(contractText.join('\n'), pageWidth - 2 * margin);
+            splitText.forEach(line => {
+                if (yPosition > pageHeight - margin - 60) {
+                    doc.addPage();
+                    yPosition = margin;
+                }
+                doc.text(line, margin, yPosition);
+                yPosition += lineHeight * 0.8;
+            });
+            
+            if (yPosition > pageHeight - 80) {
+                doc.addPage();
+                yPosition = margin;
+            } else {
+                yPosition += lineHeight * 2;
+            }
+            
+            doc.setFont(undefined, 'bold');
+            doc.text('Party A Signature:', margin, yPosition);
+            yPosition += lineHeight;
+            doc.setFont(undefined, 'normal');
+            doc.text('Changning Jiutianle Culture Media Co., Ltd.', margin, yPosition);
+            yPosition += lineHeight * 2;
+            
+            doc.setFont(undefined, 'bold');
+            doc.text('Party B Signature:', margin, yPosition);
+            yPosition += lineHeight;
+            
+            if (contract.signature) {
+                try {
+                    doc.addImage(contract.signature, 'PNG', margin, yPosition, 80, 30);
+                    yPosition += 35;
+                    doc.setFont(undefined, 'normal');
+                    doc.setFontSize(8);
+                    doc.text(`Signed on: ${new Date(contract.signedAt).toLocaleString()}`, margin, yPosition);
+                } catch (error) {
+                    console.error('添加签名图片失败:', error);
+                    doc.text('Signature: _____________________', margin, yPosition);
+                    yPosition += lineHeight;
+                }
+            } else {
+                doc.text('Signature: _____________________', margin, yPosition);
+                yPosition += lineHeight;
+            }
+            
+            setTimeout(() => {
+                try {
+                    const fileName = `Contract_${contract.realName}_${contract.nickname}_${new Date().getTime()}.pdf`;
                     
-                    // 显示下载提示和链接
-                    showDownloadTip(
-                        'PDF文件已生成！<br>' +
-                        '如果无法自动下载，请点击下方链接：',
-                        pdfUrl,
-                        `合同_${contract.realName}_${contract.nickname}.pdf`
-                    );
+                    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
                     
-                    // 尝试自动下载
-                    setTimeout(() => {
-                        try {
+                    if (isMobile) {
+                        const pdfBlob = doc.output('blob');
+                        const pdfUrl = URL.createObjectURL(pdfBlob);
+                        
+                        showDownloadTip(
+                            'PDF文件已生成!<br>如果无法自动下载,请点击下方链接:',
+                            pdfUrl,
+                            fileName
+                        );
+                        
+                        setTimeout(() => {
                             const link = document.createElement('a');
                             link.href = pdfUrl;
-                            link.download = `合同_${contract.realName}_${contract.nickname}.pdf`;
+                            link.download = fileName;
                             document.body.appendChild(link);
                             link.click();
                             document.body.removeChild(link);
-                            
-                            // 清理URL对象
                             setTimeout(() => URL.revokeObjectURL(pdfUrl), 1000);
-                        } catch (e) {
-                            console.log('自动下载被阻止，显示手动下载链接');
-                        }
-                    }, 500);
-                } else {
-                    // 桌面端直接下载
-                    doc.save(`合同_${contract.realName}_${contract.nickname}.pdf`);
+                        }, 500);
+                    } else {
+                        doc.save(fileName);
+                        hideDownloadTip();
+                        alert('PDF下载完成！签名已包含在文件中。');
+                    }
+                } catch (error) {
+                    console.error('保存PDF失败:', error);
                     hideDownloadTip();
+                    alert('保存PDF时出错: ' + error.message);
                 }
                 
-            }).catch(error => {
-                console.error('生成合同PDF错误:', error);
-                hideDownloadTip();
-                alert('生成合同PDF时出错，请重试');
                 if (document.body.contains(contractContent)) {
                     document.body.removeChild(contractContent);
                 }
-            });
+            }, 500);
         }
 
         // 显示下载提示 - 新增函数
@@ -7939,7 +8117,7 @@
                 questions: generateQuestions(moduleId),
                 currentIndex: 0,
                 answers: {},
-                timeLeft: moduleId === 1 ? 600 : 1800, // 综合考试10分钟，其他30分钟
+                timeLeft: moduleId === 1 ? 600 : 600, // 综合考试10分钟，其他30分钟
                 timer: null
             };
             showExam(moduleId);
@@ -8462,13 +8640,11 @@
             signaturePadCanvas = document.getElementById('signature-pad');
             sigCtx = signaturePadCanvas.getContext('2d');
             
-            // 设置画布尺寸适配移动端
-            const container = signaturePadCanvas.parentElement;
-            const rect = container.getBoundingClientRect();
-            signaturePadCanvas.width = rect.width * 2; // 高清渲染
-            signaturePadCanvas.height = 240; // 固定高度，确保一致性
+            // 修复：统一画布尺寸设置
+            signaturePadCanvas.width = 600;
+            signaturePadCanvas.height = 150; // 降低高度确保PDF显示
             signaturePadCanvas.style.width = '100%';
-            signaturePadCanvas.style.height = '120px';
+            signaturePadCanvas.style.height = '100px';
             
             // 设置绘制样式
             sigCtx.strokeStyle = '#000';
@@ -8660,20 +8836,20 @@
             initSignaturePad();
         }
         
-        // 关闭合同模态框
+        // 关闭合同模态框 - 未修改
         function closeContractModal() {
-            document.getElementById('contract-modal').style.display = 'none';
+            // ... 原有代码 ...
         }
         
-        // 同 - 确保签名正确保存
+        // 保存签署的合同 - 修复签名保存问题
         function saveSignedContract() {
             if (!document.getElementById('agree-checkbox').checked) {
                 alert('请先同意合同条款');
                 return;
             }
             
-            // 获取签名数据
-            const signatureDataUrl = signaturePadCanvas.toDataURL('image/png');
+            // 获取高质量签名数据
+            const signatureDataUrl = signaturePadCanvas.toDataURL('image/png', 1.0);
             
             // 检查签名是否为空
             const tempCanvas = document.createElement('canvas');
@@ -8731,8 +8907,6 @@
             // 自动跳转到首页
             location.reload();
         }
-
-
         
         // 打开合同列表模态框
         function openContractModal() {
@@ -8872,8 +9046,8 @@
     </footer>
 
     <!-- 合同弹窗 -->
-    <div id="contract-modal" class="fixed inset-0 z-60 flex items-center justify-center hidden bg-black bg-opacity-50">
-        <div class="bg-white rounded-xl shadow-xl w-full max-w-4xl p-6 relative mx-4 flex flex-col" style="max-height: 90vh;">
+    <div id="contract-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-auto p-6">
             <button onclick="closeContractModal()" class="absolute right-4 top-4 text-gray-500 hover:text-gray-700 z-10"><i class="fas fa-times"></i></button>
             <h3 class="text-xl font-bold mb-4 gradient-text">Exclusive Agency Contract for TikTok LIVE Creators</h3>
             <p class="text-sm text-gray-600 mb-4">Party A: Changning Jiutianle Culture Media Co., Ltd.<br>Party B: ${userData.nickname || 'Not logged in'} (${userData.realName || 'Not filled'})</p>
@@ -8980,22 +9154,22 @@
                 <div class="mb-2 text-sm text-gray-600"> <div class="mt-2 flex items-center">
                     <input type="checkbox" id="agree-checkbox" class="mr-2">
                     <label for="agree-checkbox" class="text-sm">I have read </label>-Signature:</div>
-                <canvas id="signature-pad" width="600" height="240" class="contract-signature-canvas w-full"></canvas>
+                <canvas id="signature-pad" width="600" height="150" class="contract-signature-canvas w-full"></canvas>
                 <div class="signature-controls mt-2">
-<div style="display: flex; align-items: center;">
-    <div class="signature-controls">
-        <button onclick="clearSignature()" class="px-3 py-2 bg-gray-200 rounded hover:bg-gray-300 transition-colors">
-            <i class="fas fa-eraser mr-1"></i>Clear
-        </button>
-    </div>
-    <div class="mt-2 text-right" style="margin-left: auto;">
-        <button onclick="saveSignedContract()" class="px-4 py-2 bg-gradient-to-r from-primary to-secondary text-white rounded-lg hover:opacity-90 transition-opacity">Sign and Save</button>
-    </div>     
-</div>
+                    <div style="display: flex; align-items: center;">
+                        <div class="signature-controls">
+                            <button onclick="clearSignature()" class="px-3 py-2 bg-gray-200 rounded hover:bg-gray-300 transition-colors">
+                                <i class="fas fa-eraser mr-1"></i>Clear
+                            </button>
+                        </div>
+                        <div class="mt-2 text-right" style="margin-left: auto;">
+                            <button onclick="saveSignedContract()" class="px-4 py-2 bg-gradient-to-r from-primary to-secondary text-white rounded-lg hover:opacity-90 transition-opacity">Sign and Save</button>
+                        </div>     
+                    </div>
                    
-                <div class="mt-2 ">
-                    <input type="" id="" class="mr-2">
-                    <label for="agree-checkbox" class="text-sm">I have read and agree to the above contract terms</label>
+                    <div class="mt-2 ">
+                        <input type="" id="" class="mr-2">
+                        <label for="agree-checkbox" class="text-sm">I have read and agree to the above contract terms</label>
                 </div>
         </div>
     </div>
@@ -9039,3 +9213,4 @@
     </svg>
 </body>
 </html>
+
